@@ -522,7 +522,7 @@ def _get_pubs_bai(person_id):
     Person's publication list.
     @param person_id: int person id
     '''
-    pubs = get_papers_of_author(person_id)
+    pubs = [x[3] for x in get_papers_of_author(person_id)]
     pubs = [int(row[0]) for row in pubs]
     return pubs
 

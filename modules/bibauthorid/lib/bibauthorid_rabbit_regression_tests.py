@@ -41,7 +41,7 @@ from invenio.bibauthorid_testutils import add_001_field
 from invenio.bibauthorid_testutils import is_test_paper_claimed
 
 from invenio.bibauthorid_dbinterface import get_authors_by_name
-from invenio.bibauthorid_dbinterface import _add_external_id_to_author
+from invenio.bibauthorid_dbinterface import add_external_id_to_author
 from invenio.bibauthorid_dbinterface import _remove_external_id_from_author
 from invenio.bibauthorid_name_utils import create_matchable_name
 from invenio.testutils import InvenioTestCase, run_test_suite, make_test_suite
@@ -266,7 +266,8 @@ class OneAuthorRabbitTestCase(BibAuthorIDRabbitTestCase):
             rabbit([self.main_bibrec], verbose=True)
             personid_to_test = get_authors_by_name(self.author_name)[0]
 
-            _add_external_id_to_author(personid_to_test, 'INSPIREID', self.ext_id)
+            #PERSONID_EXTERNAL_IDENTIFIER_MAP.values() TODO
+            add_external_id_to_author(personid_to_test, 'INSPIREID', self.ext_id)
 
             self.main_marcxml_record = get_modified_marc_for_test(self.main_marcxml_record,
                                                                   author_name=self.heavily_modified_name,

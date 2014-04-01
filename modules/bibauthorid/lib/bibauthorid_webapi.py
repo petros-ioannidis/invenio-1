@@ -1045,7 +1045,7 @@ def author_has_papers(pid):
     except ValueError:
         return False
 
-    papers = dbapi.get_papers_of_author(pid)
+    papers = [x[3] for x in dbapi.get_papers_of_author(pid)]
     if papers:
         return True
 
@@ -1193,7 +1193,6 @@ def get_user_role(req):
         role = 'user'
 
     return role
-
 
 def display_name_from_hepnames(record):
     display_name = (record_get_field_value(record, '880', '', '', 'a') or
@@ -1399,6 +1398,7 @@ def hepnames_context(record):
     return context
 
 
+#get_hepnames NEEDS TO BE CHECKED FOR REFACTORING(we may need to remove bibauthorid_data=None)
 def get_hepnames(person_id, bibauthorid_data=None):
     '''
     Returns hepnames data.
@@ -1974,7 +1974,7 @@ def get_data_union_for_merged_profiles(persons_data, new_profile_bibrecrefs):
 def merge_profiles(primary_pid, pids_to_merge):
 
     def merge_papers():
-        primary_recs = [rec[0] for rec in dbapi.get_papers_of_author(primary_pid)]
+        primary_recs = [rec[0][3] for rec in dbapi.get_papers_of_author(primary_pid)]
         for pid in pids_to_merge:
             papers_data = list(dbapi.get_all_paper_data_of_author(pid))
             for paper_data in list(papers_data):
