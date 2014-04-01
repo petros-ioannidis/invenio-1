@@ -129,7 +129,7 @@ def get_modified_marc_for_test(marcxml_string, author_name=None,
     return tostring(marcxml)
 
 
-def build_test_marcxml_field(record, tag, content, is_controlfield=False):
+def build_test_marcxml_field(record, tag, content, is_controlfield=False, code='a'):
     if is_controlfield:
         marc_field = SubElement(record, 'controlfield',
                                 {'tag': str(tag)})
@@ -138,24 +138,67 @@ def build_test_marcxml_field(record, tag, content, is_controlfield=False):
         marc_field = SubElement(record, 'datafield',
                                 {'tag': str(tag),
                                     'ind1': '', 'ind2': ''})
-        marc_sub = SubElement(marc_field, 'subfield', {'code': 'a'})
+        marc_sub = SubElement(marc_field, 'subfield', {'code': code})
         marc_sub.text = content
 
+def build_test_marcxml_field_new(record, tag, subfields, is_controlfield=False):
 
-def get_new_marc_for_test(name, author_name=None, co_authors_names=None,
-                          ext_id=None):
+    if is_controlfield:
+        marc_field = SubElement(record, 'controlfield',
+                                {'tag': str(tag)})
+        marc_field.text = content
+    else:
+        marc_field = SubElement(record, 'datafield',
+                                {'tag': str(tag),
+                                    'ind1': '', 'ind2': ''})
+        #print subfields
+        #print "tag", tag
+        for content, code in subfields:
+            #print "code ", code, "content ", content
+            marc_sub = SubElement(marc_field, 'subfield', {'code': code})
+            #print "I am after"
+            marc_sub.text = content
+            #print "I am after after"
+
+def get_new_marc_for_test(author_name=None, co_authors_names=None,
+                         identifiers=None):
     """
     Returns a MarcXML string base on the given arguments.
+
+    @param author_name: the name of the first author
+    @type author_name: str
+
+    @param co_authors_names: the names of the secondary authors
+    @type co_authors_names: list
+
+    @param identifiers: a list of the identifier (1-1 mapping with the authors, author_name->0 co_authors_names[0]->1 etc.)
+    @type identifiers: list
+
+    @param code: the MARC code of the id
+    @type code: str
+
+    @return: the record casted into a string
+    @rtype: str
     """
 
+    assert len(identifiers) == (len(co_authors_names) if co_authors_names else 0) + 1, "the identifier list does not have the same length as the author list. Identifier list: %d author_list: %d" % (len(identifiers), len(identifiers))
     record = Element('record')
-    build_test_marcxml_field(record, 245, name)
+    collection_name = bconfig.LIMIT_TO_COLLECTIONS[0]
+    build_test_marcxml_field(record, 980, collection_name)
+    build_test_marcxml_field(record, 245, 'Test Paper')
+    #print identifiers
     if author_name:
-        build_test_marcxml_field(record, 100, author_name)
+        subfields = ((author_name, 'a'),)
+        if identifiers:
+            subfields += ((identifiers[0],) if identifiers[0] else ())
+            #print subfields
+        build_test_marcxml_field_new(record, 100, subfields)
     if co_authors_names:
-        for co_author_name in co_authors_names:
-            build_test_marcxml_field(record, 700, co_author_name)
-
+        for index, co_author_name in enumerate(co_authors_names):
+            subfields = ((co_author_name, 'a'),)
+            if identifiers:
+                subfields += ((identifiers[index + 1],) if identifiers[index + 1] else ())
+        build_test_marcxml_field_new(record, 700, subfields)
     return tostring(record)
 
 
