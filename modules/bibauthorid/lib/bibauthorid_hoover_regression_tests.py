@@ -225,6 +225,45 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
             self.assertEquals(second_author_papers_after, set())
             self.clean_up_the_database('INSPIRE-FAKE_ID1')
 
+        def test_hoover_vacuum_a_paper_with_a_same_inspire_id_from_claimed_papers_that_conflict():
+
+            self.second_marcxml_record = get_modified_marc_for_test(self.second_marcxml_record)
+            self.second_marcxml_record = get_bibrec_for_record(self.second_marcxml_record,
+                                                     opt_mode='replace')
+            rabbit([self.second_bibrec], verbose=False)
+            claim_test_paper(self.second_bibrec)
+
+            first_author_papers_before = get_papers_of_author(self.pid_first_author)
+            second_author_papers_before = get_papers_of_author(self.pid_second_author)
+            inspireID_before = get_inspire_id_of_author(self.pid_first_author)
+
+            print "inspireID_before:", inspireID_before
+            print "first_author_papers_before:", first_author_papers_before
+            print "second_author_papers_before:", second_author_papers_before
+
+            hoover([self.pid_second_author, self.pid_first_author])
+
+            first_author_papers_after = get_papers_of_author(self.pid_first_author)
+            second_author_papers_after = get_papers_of_author(self.pid_second_author)
+
+            first_author_inspireID_after = get_inspire_id_of_author(self.pid_first_author)
+            second_author_inspireID_after = get_inspire_id_of_author(self.pid_second_author)
+
+            print "first_author_inspireID_after:", first_author_inspireID_after
+            print "second_author_inspireID_after:", second_author_inspireID_after
+            print "first_author_papers_after:", first_author_papers_after
+            print "second_author_papers_after:", second_author_papers_after
+
+            self.assertEquals(first_author_inspireID_after, 'INSPIRE-FAKE_ID1')
+            self.assertEquals(second_author_inspireID_after, tuple())
+
+            first_author_papers_before = set(x[1:4] for x in first_author_papers_before)
+            second_author_papers_before = set(x[1:4] for x in second_author_papers_before)
+            first_author_papers_after = set(x[1:4] for x in first_author_papers_after)
+            second_author_papers_after = set(x[1:4] for x in second_author_papers_after)
+            self.assertEquals(first_author_papers_after, first_author_papers_before.union(second_author_papers_before))
+            self.assertEquals(second_author_papers_after, set())
+            self.clean_up_the_database('INSPIRE-FAKE_ID1')
         test_hoover_vacuum_a_paper_with_a_same_inspire_id_from_a_claimed_paper()
 #TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
 TEST_SUITE = make_test_suite(ManyAuthorsHooverTestCase)

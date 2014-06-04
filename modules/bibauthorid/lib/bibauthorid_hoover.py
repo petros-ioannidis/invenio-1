@@ -14,6 +14,10 @@ from invenio.bibauthorid_dbinterface import get_existing_authors, \
 from invenio.bibauthorid_general_utils import memoized
 import invenio.bibauthorid_dbinterface as db
 from invenio.bibauthorid_webapi import get_hepnames
+try:
+    from collections import defaultdict
+except ImportError:
+    from invenio.bibauthorid_general_utils import defaultdict
 
 def timed(func):
     def print_time(*args, **kwargs):
@@ -195,7 +199,7 @@ def hoover(authors=None):
     records_with_id = set(rec[0] for rec in set(recs))
     #records_with_id = [rec[0] for rec in set(recs)]
     populate_partial_marc_caches(records_with_id, create_inverted_dicts=True)
-    same_ids = {}
+    #same_ids = {}
     fdict_id_getters = {
                         "INSPIREID": {
                                       'reliable': [get_inspire_id_of_author,
@@ -203,7 +207,11 @@ def hoover(authors=None):
                                                    lambda pid: get_inspireID_from_claimed_papers(pid, intersection_set=records_with_id),],
 
                                       'unreliable': [lambda pid: get_inspireID_from_unclaimed_papers(pid, intersection_set=records_with_id)],
-                                      'signatures_getter': get_signatures_with_inspireID
+                                      'signatures_getter': get_signatures_with_inspireID,
+                                      'data_dicts': { 
+                                                      'pid_mapping': defaultdict(set) 
+                                                      'id_mapping':  defaultdict(set)
+                                                    }
                                      },
 
                         "ORCID":     {
@@ -216,7 +224,11 @@ def hoover(authors=None):
                                                        #get_inspireID_from_hepnames,
                                                        #lambda pid: get_inspireID_from_claimed_papers(pid, intersection_set=records_with_id)]
                                                     ],
-                                      'signatures_getter': lambda x: list()
+                                      'signatures_getter': lambda x: list(),
+                                      'data_dicts': { 
+                                                      'pid_mapping': defaultdict(set)
+                                                      'id_mapping': defaultdict(set)
+                                                    }
                                     }
 
                        }
@@ -230,14 +242,13 @@ def hoover(authors=None):
     print "running on ", len(authors)," !"
 
     unclaimed_authors = []
+    reliable = True
     for index, pid in enumerate(authors):
 
         for identifier_type, functions in fdict_id_getters.iteritems():
             print "\npid ",pid
             G = (func(pid) for func in functions['reliable'])
-            #try:
             try:
-                reliable = True
                 res = next((func for func in G if func), None)
                 print "found reliable id", res
             except Exception, e:
@@ -245,34 +256,40 @@ def hoover(authors=None):
                 continue
 
             if res:
-                if not res in same_ids:
-                    same_ids[res] = pid
-                else:
-                    #we have an inspireID conflict, skip
-                    print "Conflict: pid1=", pid," pid2=", same_ids[res]
-                    continue
+                fdict_id_getters['data_dicts']['pid_mapping'][pid].add(res)
+                fdict_id_getters['data_dicts']['id_mapping'][res].add(pid)
             else:
                 unclaimed_authors.append(pid)
                 continue
 
             assert res, 'res here should never be None'
-            signatures = functions['signatures_getter'](res)
+
+    for identifier_type, data in fdict_id_getters.iteritems():
+        for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
             try:
-                if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
-                    print "Adding inspireid ", res, " to pid ", pid
-                    add_external_id_to_author(pid, identifier_type, res)
+                if len(identifiers) == 1:
+                    identifier = identifiers[0]
+                    if len(data['data_dicts']['id_mapping'][identifier]) == 1:
+                        signatures = functions['signatures_getter'](identifier)
+                        if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
+                            print "Adding inspireid ", res, " to pid ", pid
+                            add_external_id_to_author(pid, identifier_type, res)
+                    else:
+                        raise Exception("More than one authors with the same identifier")
+                else:
+                    raise Exception("More than one identifier")
             except Exception, e:
                 print 'Something went terribly wrong even here! ', e
                 continue
 
     print "we are entering the twilight zone"
+    reliable = False
     for index, pid in enumerate(unclaimed_authors):
 
         for identifier_type, functions in fdict_id_getters.iteritems():
             print "\npid ",pid
             G = (func(pid) for func in functions['unreliable'])
             try:
-                reliable = False
                 res = next((func for func in G if func), None)
                 print "found reliable id", res
             except Exception, e:
