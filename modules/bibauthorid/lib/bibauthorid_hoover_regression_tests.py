@@ -265,8 +265,8 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
             self.assertEquals(second_author_papers_after, set())
             self.clean_up_the_database('INSPIRE-FAKE_ID1')
         test_hoover_vacuum_a_paper_with_a_same_inspire_id_from_a_claimed_paper()
-#TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
-TEST_SUITE = make_test_suite(ManyAuthorsHooverTestCase)
+TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
+#TEST_SUITE = make_test_suite(ManyAuthorsHooverTestCase)
 
 if __name__ == "__main__":
     run_test_suite(TEST_SUITE, warn_user=False)
