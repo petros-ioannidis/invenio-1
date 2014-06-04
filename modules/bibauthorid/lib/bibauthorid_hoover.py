@@ -209,8 +209,8 @@ def hoover(authors=None):
                                       'unreliable': [lambda pid: get_inspireID_from_unclaimed_papers(pid, intersection_set=records_with_id)],
                                       'signatures_getter': get_signatures_with_inspireID,
                                       'data_dicts': { 
-                                                      'pid_mapping': defaultdict(set) 
-                                                      'id_mapping':  defaultdict(set)
+                                                      'pid_mapping': defaultdict(set),
+                                                      'id_mapping': defaultdict(set)
                                                     }
                                      },
 
@@ -226,7 +226,7 @@ def hoover(authors=None):
                                                     ],
                                       'signatures_getter': lambda x: list(),
                                       'data_dicts': { 
-                                                      'pid_mapping': defaultdict(set)
+                                                      'pid_mapping': defaultdict(set),
                                                       'id_mapping': defaultdict(set)
                                                     }
                                     }
@@ -256,8 +256,8 @@ def hoover(authors=None):
                 continue
 
             if res:
-                fdict_id_getters['data_dicts']['pid_mapping'][pid].add(res)
-                fdict_id_getters['data_dicts']['id_mapping'][res].add(pid)
+                fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
+                fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
             else:
                 unclaimed_authors.append(pid)
                 continue
@@ -268,18 +268,19 @@ def hoover(authors=None):
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
             try:
                 if len(identifiers) == 1:
-                    identifier = identifiers[0]
+                    identifier = list(identifiers)[0]
+                    print "identifier", identifier
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
                         signatures = functions['signatures_getter'](identifier)
                         if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
-                            print "Adding inspireid ", res, " to pid ", pid
-                            add_external_id_to_author(pid, identifier_type, res)
+                            print "Adding inspireid ", identifier, " to pid ", pid
+                            add_external_id_to_author(pid, identifier_type, identifier)
                     else:
                         raise Exception("More than one authors with the same identifier")
                 else:
                     raise Exception("More than one identifier")
             except Exception, e:
-                print 'Something went terribly wrong even here! ', e
+                print 'Something went terribly wrong even here(reliable)! ', e
                 continue
 
     print "we are entering the twilight zone"
@@ -306,7 +307,7 @@ def hoover(authors=None):
                     print "Adding inspireid ", res, " to pid ", pid
                     add_external_id_to_author(pid, identifier_type, res)
             except Exception, e:
-                print 'Something went terribly wrong even here! ', e
+                print 'Something went terribly wrong even here(unreliable)! ', e
                 continue
 
 if __name__ == "__main__":
