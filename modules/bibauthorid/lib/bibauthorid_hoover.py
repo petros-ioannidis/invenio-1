@@ -10,7 +10,7 @@ from invenio.bibauthorid_dbinterface import get_existing_authors, \
     _get_external_ids_from_papers_of_author, get_claimed_papers_of_author, \
     get_inspire_id_of_signature ,populate_partial_marc_caches, move_signature, \
     add_external_id_to_author, get_free_author_id, get_inspire_id_of_author, \
-    get_orcid_id_of_author
+    get_orcid_id_of_author, destroy_partial_marc_caches
 from invenio.bibauthorid_general_utils import memoized
 import invenio.bibauthorid_dbinterface as db
 from invenio.bibauthorid_webapi import get_hepnames
@@ -135,9 +135,9 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
 
 def get_signatures_with_inspireID(inspireID):
     '''get and vacuum of the signatures that belong to this inspire id'''
-    cache = timed(get_signatures_with_inspireID_cache)(inspireID)
+    print "I was called with inspireID", inspireID
+    return get_signatures_with_inspireID_cache(inspireID)
     #sql = timed(get_signatures_with_inspireID_sql)(inspireID)
-    return cache
 
 def get_records_with_tag(tag):
     '''return all the records with a specific tag'''
@@ -198,6 +198,8 @@ def hoover(authors=None):
     recs = set(recs) & set(recs1)
     records_with_id = set(rec[0] for rec in set(recs))
     #records_with_id = [rec[0] for rec in set(recs)]
+    
+    destroy_partial_marc_caches()
     populate_partial_marc_caches(records_with_id, create_inverted_dicts=True)
     #same_ids = {}
     fdict_id_getters = {
@@ -241,7 +243,7 @@ def hoover(authors=None):
         authors = get_existing_authors()
     print "running on ", len(authors)," !"
 
-    unclaimed_authors = []
+    unclaimed_authors = defaultdict(set) 
     reliable = True
     for index, pid in enumerate(authors):
 
@@ -259,7 +261,7 @@ def hoover(authors=None):
                 fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
                 fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
             else:
-                unclaimed_authors.append(pid)
+                unclaimed_authors[identifier_type].add(pid)
                 continue
 
             assert res, 'res here should never be None'
@@ -271,7 +273,8 @@ def hoover(authors=None):
                     identifier = list(identifiers)[0]
                     print "identifier", identifier
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
-                        signatures = functions['signatures_getter'](identifier)
+                        signatures = data['signatures_getter'](identifier)
+                        print "signatures", signatures
                         if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
                             print "Adding inspireid ", identifier, " to pid ", pid
                             add_external_id_to_author(pid, identifier_type, identifier)
@@ -285,14 +288,14 @@ def hoover(authors=None):
 
     print "we are entering the twilight zone"
     reliable = False
-    for index, pid in enumerate(unclaimed_authors):
+    for identifier_type, functions in fdict_id_getters.iteritems():
+        for index, pid in enumerate(unclaimed_authors[identifier_type]):
 
-        for identifier_type, functions in fdict_id_getters.iteritems():
             print "\npid ",pid
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
-                print "found reliable id", res
+                print "found unreliable id", res
             except Exception, e:
                 print 'Something went terribly wrong(unreliable)! ', str(e)
                 continue
@@ -301,6 +304,10 @@ def hoover(authors=None):
                 continue
 
             assert res, 'res here should never be None'
+            if res in fdict_id_getters[identifier_type]['data_dicts']['id_mapping']:
+                print "Id",res," already there"
+                print "skipping author",pid
+                continue
             signatures = functions['signatures_getter'](res)
             try:
                 if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
