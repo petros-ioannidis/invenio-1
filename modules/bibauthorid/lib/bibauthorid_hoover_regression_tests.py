@@ -16,6 +16,7 @@ import invenio.bibauthorid_hoover
 from invenio.bibauthorid_dbinterface import get_inspire_id_of_author
 from invenio.bibauthorid_dbinterface import _delete_from_aidpersonidpapers_where
 from invenio.bibauthorid_dbinterface import get_papers_of_author
+from invenio.search_engine import get_record
 
 
 class BibAuthorIDHooverTestCase(TestCase):
@@ -182,6 +183,13 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
                                    (self.current_bibref_value, self.second_bibrec, self.authors['author2']['name']))[0][0]
         print "Second pid", self.pid_second_author
         print "Second bibref", self.current_bibref_value
+        print "first marc", self.first_marcxml_record
+        print "second marc", self.second_marcxml_record
+        print "first record", get_record(self.first_bibrec) 
+        print "second record", get_record(self.second_bibrec)
+        print "sql: ", run_sql('select * from aidPERSONIDPAPERS where name LIKE "author%"')
+
+
 
     def tearDown(self):
         _delete_from_aidpersonidpapers_where(self.pid_first_author)
@@ -265,8 +273,9 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
             self.assertEquals(second_author_papers_after, set())
             self.clean_up_the_database('INSPIRE-FAKE_ID1')
         test_hoover_vacuum_a_paper_with_a_same_inspire_id_from_a_claimed_paper()
-TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
-#TEST_SUITE = make_test_suite(ManyAuthorsHooverTestCase)
+        test_hoover_vacuum_a_paper_with_a_same_inspire_id_from_claimed_papers_that_conflict()
+#TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
+TEST_SUITE = make_test_suite(ManyAuthorsHooverTestCase)
 
 if __name__ == "__main__":
     run_test_suite(TEST_SUITE, warn_user=False)
