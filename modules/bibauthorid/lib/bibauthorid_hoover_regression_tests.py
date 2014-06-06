@@ -82,8 +82,18 @@ class OneAuthorOnePaperHooverTestCase(BibAuthorIDHooverTestCase):
             hoover([self.pid])
             inspireID_after = get_inspire_id_of_author(self.pid)
             self.assertEquals(inspireID_after, 'INSPIRE-FAKE_ID1')
-            self.clean_up_the_database('INSPIRE-FAKE_ID1')
 
+#check if there is nothing to do nothing happens(3 cases)
+#
+        def test_hoover_for_duplication():
+            inspireID_before = get_inspire_id_of_author(self.pid)
+            hoover([self.pid])
+            inspireID_after = get_inspire_id_of_author(self.pid)
+            inspire_list = run_sql("select * from aidPERSONIDDATA where extid:INSPIREID=%s",(inspireID_after,))
+            self.assertEquals(len(inspire_list), 1)
+            self.assertEquals(list(inspire_list)[0], inspireID_before)
+            self.assertEquals(inspireID_before, inspireID_after)
+            self.clean_up_the_database('INSPIRE-FAKE_ID1')
 
         def test_hoover_assign_one_inspire_id_from_a_claimed_paper():
             claim_test_paper(self.claimed_bibrec)
@@ -93,6 +103,7 @@ class OneAuthorOnePaperHooverTestCase(BibAuthorIDHooverTestCase):
             self.assertEquals(inspireID_after, 'INSPIRE-FAKE_ID1')
             self.clean_up_the_database('INSPIRE-FAKE_ID1')
 
+        test_hoover_for_duplication()
         test_hoover_assign_one_inspire_id_from_an_unclaimed_paper()
         test_hoover_assign_one_inspire_id_from_a_claimed_paper()
 
