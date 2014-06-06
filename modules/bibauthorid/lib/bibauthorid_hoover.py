@@ -268,6 +268,7 @@ def hoover(authors=None):
 
     for identifier_type, data in fdict_id_getters.iteritems():
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
+            #check for duplication
             try:
                 if len(identifiers) == 1:
                     identifier = list(identifiers)[0]
