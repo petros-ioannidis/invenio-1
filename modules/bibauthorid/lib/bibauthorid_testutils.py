@@ -181,7 +181,8 @@ def get_new_marc_for_test(author_name=None, co_authors_names=None,
     @rtype: str
     """
 
-    assert len(identifiers) == (len(co_authors_names) if co_authors_names else 0) + 1, "the identifier list does not have the same length as the author list. Identifier list: %d author_list: %d" % (len(identifiers), len(identifiers))
+    if(identifiers):
+        assert len(identifiers) == (len(co_authors_names) if co_authors_names else 0) + 1, "the identifier list does not have the same length as the author list. Identifier list: %d author_list: %d" % (len(identifiers), len(identifiers))
     record = Element('record')
     collection_name = bconfig.LIMIT_TO_COLLECTIONS[0]
     build_test_marcxml_field(record, 980, collection_name)

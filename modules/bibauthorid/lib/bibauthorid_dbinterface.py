@@ -1755,7 +1755,8 @@ def add_external_id_to_author(pid, ext_sys, ext_id, avoid_id_duplication=True): 
     '''
     present = False
     if avoid_id_duplication:
-        present = run_sql('select data from aidPERSONIDDATA where personid=%s and tag="extid:%s" and data=%s' , (pid, ext_sys, ext_id))
+        id_string = "extid:%s" % ext_sys
+        present = run_sql('select data from aidPERSONIDDATA where personid=%s and tag=%s and data=%s' , (pid, id_string, ext_id))
 
     if not present:
         run_sql('insert into aidPERSONIDDATA (personid, tag, data) '
