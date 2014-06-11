@@ -314,7 +314,8 @@ def hoover(authors=None):
                 if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
                     print "Adding inspireid ", res, " to pid ", pid
                     add_external_id_to_author(pid, identifier_type, res)
-            except Exception, e: print 'Something went terribly wrong even here(unreliable)! ', e
+            except Exception, e:
+                print 'Something went terribly wrong even here(unreliable)! ', e
                 continue
 
 if __name__ == "__main__":
