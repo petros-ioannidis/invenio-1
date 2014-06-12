@@ -21,7 +21,8 @@ from invenio.search_engine import get_record
 
 class BibAuthorIDHooverTestCase(TestCase):
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
 
         '''
         Setting up the regression test for hoover.
@@ -67,14 +68,138 @@ class BibAuthorIDHooverTestCase(TestCase):
                                         'inspireID': 'INSPIRE-FAKE_ID11'},
                          'author12': {
                                         'name': 'author12121212a author12121212b',
-                                        'inspireID': 'INSPIRE-FAKE_ID12'}
+                                        'inspireID': 'INSPIRE-FAKE_ID12'},
+                         'author13': {
+                                        'name': 'author13131313a author13131313b',
+                                        'inspireID': 'INSPIRE-FAKE_ID13'},
+                         'author14': {
+                                        'name': 'author14141414a author14141414b',
+                                        'inspireID': 'INSPIRE-FAKE_ID14'}
                        }
         self.marc_xmls = dict()
+        self.bibrecs = dict()
+        self.pids = dict()
+        self.bibrefs = dict()
 
+        def set_up_test_hoover_inertia():
+            self.marc_xmls['paper1'] = get_new_marc_for_test(self.authors['author1']['name'])
+            self.bibrecs['paper1'] = get_bibrec_for_record(self.marc_xmls['paper1'], opt_mode='insert')
+            self.marc_xmls['paper1'] = add_001_field(self.marc_xmls['paper1'], self.bibrecs['paper1'])
 
+        def set_up_test_hoover_duplication():
+            self.marc_xmls['paper2'] = get_new_marc_for_test(self.authors['author2']['name'], None, \
+                                                             ((self.authors['author2']['inspireID'], 'i'),))
 
+            self.bibrecs['paper2'] = get_bibrec_for_record(self.marc_xmls['paper2'], opt_mode='insert')
+            self.marc_xmls['paper2'] = add_001_field(self.marc_xmls['paper2'], self.bibrecs['paper2'])
 
-    def tearDown(self):
+        def set_up_test_hoover_assign_one_inspire_id_from_an_unclaimed_paper():
+            self.marc_xmls['paper3'] = get_new_marc_for_test(self.authors['author3']['name'], None, \
+                                                             ((self.authors['author3']['inspireID'], 'i'),))
+
+            self.bibrecs['paper3'] = get_bibrec_for_record(self.marc_xmls['paper3'], opt_mode='insert')
+            self.marc_xmls['paper3'] = add_001_field(self.marc_xmls['paper3'], self.bibrecs['paper3'])
+
+        def set_up_test_hoover_assign_one_inspire_id_from_a_claimed_paper():
+            self.marc_xmls['paper4'] = get_new_marc_for_test(self.authors['author4']['name'], None, \
+                                                             ((self.authors['author4']['inspireID'], 'i'),))
+
+            self.bibrecs['paper4'] = get_bibrec_for_record(self.marc_xmls['paper4'], opt_mode='insert')
+            self.marc_xmls['paper4'] = add_001_field(self.marc_xmls['paper4'], self.bibrecs['paper4'])
+
+        def set_up_test_hoover_assign_one_inspire_id_from_unclaimed_papers_with_different_inspireID():
+            self.marc_xmls['paper5'] = get_new_marc_for_test(self.authors['author5']['name'], None, \
+                                                             ((self.authors['author5']['inspireID'], 'i'),))
+
+            self.bibrecs['paper5'] = get_bibrec_for_record(self.marc_xmls['paper5'], opt_mode='insert')
+            self.marc_xmls['paper5'] = add_001_field(self.marc_xmls['paper5'], self.bibrecs['paper5'])
+
+            self.marc_xmls['paper6'] = get_new_marc_for_test(self.authors['author5']['name'], None, \
+                                                             ((self.authors['author6']['inspireID'], 'i'),))
+
+            self.bibrecs['paper6'] = get_bibrec_for_record(self.marc_xmls['paper6'], opt_mode='insert')
+            self.marc_xmls['paper6'] = add_001_field(self.marc_xmls['paper6'], self.bibrecs['paper6'])
+
+        def set_up_test_hoover_assign_one_inspire_id_from_a_claimed_paper_and_unclaimed_paper_with_different_inspireID():
+            self.marc_xmls['paper7'] = get_new_marc_for_test(self.authors['author7']['name'], None, \
+                                                             ((self.authors['author7']['inspireID'], 'i'),))
+
+            self.bibrecs['paper7'] = get_bibrec_for_record(self.marc_xmls['paper7'], opt_mode='insert')
+            self.marc_xmls['paper7'] = add_001_field(self.marc_xmls['paper7'], self.bibrecs['paper7'])
+
+            self.marc_xmls['paper8'] = get_new_marc_for_test(self.authors['author7']['name'], None, \
+                                                             ((self.authors['author8']['inspireID'], 'i'),))
+
+            self.bibrecs['paper8'] = get_bibrec_for_record(self.marc_xmls['paper8'], opt_mode='insert')
+            self.marc_xmls['paper8'] = add_001_field(self.marc_xmls['paper8'], self.bibrecs['paper8'])
+
+        def set_up_test_hoover_assign_one_inspire_id_from_claimed_papers_with_different_inspireID():
+            self.marc_xmls['paper9'] = get_new_marc_for_test(self.authors['author9']['name'], None, \
+                                                             ((self.authors['author2']['inspireID'], 'i'),))
+
+            self.bibrecs['paper9'] = get_bibrec_for_record(self.marc_xmls['paper9'], opt_mode='insert')
+            self.marc_xmls['paper9'] = add_001_field(self.marc_xmls['paper9'], self.bibrecs['paper9'])
+
+            self.marc_xmls['paper10'] = get_new_marc_for_test(self.authors['author9']['name'], None, \
+                                                             ((self.authors['author10']['inspireID'], 'i'),))
+
+            self.bibrecs['paper10'] = get_bibrec_for_record(self.marc_xmls['paper10'], opt_mode='insert')
+            self.marc_xmls['paper10'] = add_001_field(self.marc_xmls['paper10'], self.bibrecs['paper10'])
+
+        def set_up_test_hoover_vacuum_an_unclaimed_paper_with_an_inspire_id_from_a_claimed_paper():
+            self.marc_xmls['paper11'] = get_new_marc_for_test(self.authors['author11']['name'], None, \
+                                                             ((self.authors['author11']['inspireID'], 'i'),))
+
+            self.bibrecs['paper11'] = get_bibrec_for_record(self.marc_xmls['paper11'], opt_mode='insert')
+            self.marc_xmls['paper11'] = add_001_field(self.marc_xmls['paper11'], self.bibrecs['paper11'])
+
+            self.marc_xmls['paper12'] = get_new_marc_for_test(self.authors['author12']['name'], None, \
+                                                             ((self.authors['author11']['inspireID'], 'i'),))
+
+            self.bibrecs['paper12'] = get_bibrec_for_record(self.marc_xmls['paper12'], opt_mode='insert')
+            self.marc_xmls['paper12'] = add_001_field(self.marc_xmls['paper12'], self.bibrecs['paper12'])
+
+        def set_up_test_hoover_vacuum_a_claimed_paper_with_an_inspire_id_from_a_claimed_paper():
+            self.marc_xmls['paper13'] = get_new_marc_for_test(self.authors['author13']['name'], None, \
+                                                             ((self.authors['author13']['inspireID'], 'i'),))
+
+            self.bibrecs['paper13'] = get_bibrec_for_record(self.marc_xmls['paper13'], opt_mode='insert')
+            self.marc_xmls['paper13'] = add_001_field(self.marc_xmls['paper13'], self.bibrecs['paper13'])
+
+            self.marc_xmls['paper14'] = get_new_marc_for_test(self.authors['author14']['name'], None, \
+                                                             ((self.authors['author13']['inspireID'], 'i'),))
+
+            self.bibrecs['paper14'] = get_bibrec_for_record(self.marc_xmls['paper14'], opt_mode='insert')
+            self.marc_xmls['paper14'] = add_001_field(self.marc_xmls['paper14'], self.bibrecs['paper14'])
+
+        set_up_test_hoover_inertia()
+        set_up_test_hoover_duplication()
+        set_up_test_hoover_assign_one_inspire_id_from_an_unclaimed_paper()
+        set_up_test_hoover_assign_one_inspire_id_from_a_claimed_paper()
+        set_up_test_hoover_assign_one_inspire_id_from_unclaimed_papers_with_different_inspireID()
+        set_up_test_hoover_assign_one_inspire_id_from_a_claimed_paper_and_unclaimed_paper_with_different_inspireID()
+        set_up_test_hoover_assign_one_inspire_id_from_claimed_papers_with_different_inspireID()
+        set_up_test_hoover_vacuum_an_unclaimed_paper_with_an_inspire_id_from_a_claimed_paper()
+        set_up_test_hoover_vacuum_a_claimed_paper_with_an_inspire_id_from_a_claimed_paper()
+
+        self.bibrecs_to_clean = [self.bibrecs[key] for key in self.bibrecs]
+        rabbit([self.bibrecs[key] for key in self.bibrecs], verbose=False)
+
+        for key in authors:
+            self.bibrefs[key] = get_bibref_value_for_name(self.authors[key]['name'])
+            self.pids[key] = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.bibrefs[key], self.bibrecs[key.replace('author','paper')], self.authors[key]['name']))[0][0]
+
+        claim_test_paper(self.bibrecs['paper4'])
+        claim_test_paper(self.bibrecs['paper7'])
+        claim_test_paper(self.bibrecs['paper9'])
+        claim_test_paper(self.bibrecs['paper10'])
+        claim_test_paper(self.bibrecs['paper11'])
+        claim_test_paper(self.bibrecs['paper13'])
+        claim_test_paper(self.bibrecs['paper14'])
+        hoover(list(set([self.pids[key] for keys in self.pids])))
+
+    @classmethod
+    def tearDownClass(self):
         # All records are wiped out for consistency.
         self.clean_up_the_database(self.authors['author1']['inspireID'])
         self.clean_up_the_database(self.authors['author2']['inspireID'])
@@ -88,6 +213,10 @@ class BibAuthorIDHooverTestCase(TestCase):
         self.clean_up_the_database(self.authors['author10']['inspireID'])
         self.clean_up_the_database(self.authors['author11']['inspireID'])
         self.clean_up_the_database(self.authors['author12']['inspireID'])
+        
+        for key in self.pids:
+            _delete_from_aidpersonidpapers_where(self.pids[key])
+
         for bibrec in self.bibrecs_to_clean:
             wipe_out_record_from_all_tables(bibrec)
             clean_authors_tables(bibrec)
@@ -101,36 +230,8 @@ class OneAuthorOnePaperHooverTestCase(BibAuthorIDHooverTestCase):
 
     def setUp(self):
         super(OneAuthorOnePaperHooverTestCase, self).setUp()
-        self.unclaimed_marcxml_record = get_new_marc_for_test(self.authors['author1']['name'], None, \
-                                                         ((self.authors['author1']['inspireID'], 'i'),))
-
-        self.claimed_marcxml_record = get_new_marc_for_test(self.authors['author1']['name'], None, \
-                                                         ((self.authors['author1']['inspireID'], 'i'),))
-
-        self.insignificant_marcxml_record = get_new_marc_for_test(self.authors['author2']['name'])
-                                                         
-        self.unclaimed_bibrec = get_bibrec_for_record(self.unclaimed_marcxml_record, opt_mode='insert')
-        self.unclaimed_marcxml_record = add_001_field(self.unclaimed_marcxml_record, self.unclaimed_bibrec)
-
-        self.claimed_bibrec = get_bibrec_for_record(self.claimed_marcxml_record, opt_mode='insert')
-        self.claimed_marcxml_record = add_001_field(self.claimed_marcxml_record, self.claimed_bibrec)
-
-        self.insignificant_bibrec = get_bibrec_for_record(self.insignificant_marcxml_record, opt_mode='insert')
-        self.insignificant_marcxml_record = add_001_field(self.insignificant_marcxml_record, self.insignificant_bibrec)
-
-        self.bibrecs_to_clean = [self.unclaimed_bibrec, self.claimed_bibrec, self.insignificant_bibrec]
-
-        rabbit([self.unclaimed_bibrec, self.claimed_bibrec, self.insignificant_bibrec], verbose=False)
-
-        self.current_bibref_value = get_bibref_value_for_name(self.authors['author1']['name']) #saved for following tests
-        self.insignificant_bibref_value = get_bibref_value_for_name(self.authors['author2']['name']) #saved for following tests
-
-        self.pid = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.current_bibref_value, self.unclaimed_bibrec, self.authors['author1']['name']))[0][0]
-        self.insignificant_pid = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.insignificant_bibref_value, self.insignificant_bibrec, self.authors['author2']['name']))[0][0]
 
     def tearDown(self):
-        _delete_from_aidpersonidpapers_where(self.pid)
-        _delete_from_aidpersonidpapers_where(self.insignificant_pid)
         super(OneAuthorOnePaperHooverTestCase, self).tearDown()
 
     def test_hoover_one_author_one_paper(self):
@@ -138,25 +239,17 @@ class OneAuthorOnePaperHooverTestCase(BibAuthorIDHooverTestCase):
         def test_hoover_inertia():
             '''If nothing should change then nothing changes'''
 
-            hoover([self.insignificant_pid])
-            inspireID = get_inspire_id_of_author(self.insignificant_pid)
+            inspireID = get_inspire_id_of_author(self.pids['author1'])
             self.assertEquals(inspireID, tuple())
 
         def test_hoover_for_duplication():
             '''No duplicated information in the database'''
 
-            hoover([self.pid])
-            author_papers_before = get_papers_of_author(self.pid)
-            inspireID_before = get_inspire_id_of_author(self.pid)
-            inspire_list_before = run_sql("select * from aidPERSONIDDATA where tag='extid:INSPIREID' and data=%s",(inspireID_before,))
-            hoover([self.pid])
-            inspireID_after = get_inspire_id_of_author(self.pid)
-            author_papers_after = get_papers_of_author(self.pid)
-            inspire_list_after = run_sql("select * from aidPERSONIDDATA where tag='extid:INSPIREID' and data=%s",(inspireID_after,))
-            self.assertEquals(author_papers_before, author_papers_after)
-            self.assertEquals(inspire_list_before, inspire_list_after)
-            self.assertEquals(inspireID_before, inspireID_after)
-            self.clean_up_the_database(inspireID_after)
+            #author_papers = get_papers_of_author(self.pids['author1'])
+            #inspire_list_after = run_sql("select * from aidPERSONIDDATA where tag='extid:INSPIREID' and data=%s",(inspireID_after,))
+            inspireID = get_inspire_id_of_author(self.pids['author2'])
+            self.assertEquals(inspireID, tuple())
+            #self.assertEquals(author_papers_before, author_papers_after)
 
         def test_hoover_assign_one_inspire_id_from_an_unclaimed_paper():
             '''
@@ -167,11 +260,8 @@ class OneAuthorOnePaperHooverTestCase(BibAuthorIDHooverTestCase):
                 *connect author with inspireID taken from the unclaimed paper
             '''
 
-            inspireID_before = get_inspire_id_of_author(self.pid)
-            hoover([self.pid])
-            inspireID_after = get_inspire_id_of_author(self.pid)
-            self.assertEquals(inspireID_after, 'INSPIRE-FAKE_ID1')
-            self.clean_up_the_database(inspireID_after)
+            inspireID = get_inspire_id_of_author(self.pids['author3'])
+            self.assertEquals(inspireID, self.authors['author3']['inspireID'])
 
         def test_hoover_assign_one_inspire_id_from_a_claimed_paper():
             '''
@@ -182,12 +272,8 @@ class OneAuthorOnePaperHooverTestCase(BibAuthorIDHooverTestCase):
                 *connect author with inspireID taken from the claimed paper
             '''
 
-            claim_test_paper(self.claimed_bibrec)
-            inspireID_before = get_inspire_id_of_author(self.pid)
-            hoover([self.pid])
-            inspireID_after = get_inspire_id_of_author(self.pid)
-            self.assertEquals(inspireID_after, 'INSPIRE-FAKE_ID1')
-            self.clean_up_the_database(inspireID_after)
+            inspireID = get_inspire_id_of_author(self.pids['author4'])
+            self.assertEquals(inspireID, self.authors['author4']['inspireID'])
 
         test_hoover_inertia()
         test_hoover_for_duplication()
@@ -198,27 +284,8 @@ class OneAuthorManyPapersHooverTestCase(BibAuthorIDHooverTestCase):
 
     def setUp(self):
         super(OneAuthorManyPapersHooverTestCase, self).setUp()
-        self.first_marcxml_record = get_new_marc_for_test(self.authors['author1']['name'], None, \
-                                                         ((self.authors['author1']['inspireID'], 'i'),))
-
-        self.second_marcxml_record = get_new_marc_for_test(self.authors['author1']['name'], None, \
-                                                          ((self.authors['author2']['inspireID'], 'i'),))
-
-        self.first_bibrec = get_bibrec_for_record(self.first_marcxml_record, opt_mode='insert')
-        self.first_marcxml_record = add_001_field(self.first_marcxml_record, self.first_bibrec)
-
-        self.second_bibrec = get_bibrec_for_record(self.second_marcxml_record, opt_mode='insert')
-        self.second_marcxml_record = add_001_field(self.second_marcxml_record, self.second_bibrec)
-
-        self.bibrecs_to_clean = [self.first_bibrec, self.second_bibrec]
-
-        rabbit([self.first_bibrec, self.second_bibrec], verbose=False)
-
-        self.current_bibref_value = get_bibref_value_for_name(self.authors['author1']['name']) #saved for following tests
-        self.pid = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.current_bibref_value, self.first_bibrec, self.authors['author1']['name']))[0][0]
 
     def tearDown(self):
-        _delete_from_aidpersonidpapers_where(self.pid)
         super(OneAuthorManyPapersHooverTestCase, self).tearDown()
 
     def test_hoover_one_author_many_papers(self):
@@ -235,13 +302,8 @@ class OneAuthorManyPapersHooverTestCase(BibAuthorIDHooverTestCase):
                 *Nothing has changed
             '''
 
-            inspireID_before = get_inspire_id_of_author(self.pid)
-            print "inspireID_before:", inspireID_before
-            hoover([self.pid])
-            inspireID_after = get_inspire_id_of_author(self.pid)
-            print "inspireID_after:", inspireID_after
-            self.assertEquals(inspireID_after, tuple())
-            self.clean_up_the_database(inspireID_after)
+            inspireID = get_inspire_id_of_author(self.pids['author5'])
+            self.assertEquals(inspireID, set())
 
         def test_hoover_assign_one_inspire_id_from_a_claimed_paper_and_unclaimed_paper_with_different_inspireID():
             '''
@@ -255,14 +317,8 @@ class OneAuthorManyPapersHooverTestCase(BibAuthorIDHooverTestCase):
                 *connect author with inspireID taken from the claimed paper(INSPIRE-FAKE_ID1)
             '''
 
-            claim_test_paper(self.first_bibrec)
-            inspireID_before = get_inspire_id_of_author(self.pid)
-            print "inspireID_before:", inspireID_before
-            hoover([self.pid])
-            inspireID_after = get_inspire_id_of_author(self.pid)
-            print "inspireID_after:", inspireID_after
-            self.assertEquals(inspireID_after, 'INSPIRE-FAKE_ID1')
-            self.clean_up_the_database(inspireID_after)
+            inspireID = get_inspire_id_of_author(self.pids['author7'])
+            self.assertEquals(inspireID, self.authors['author7']['inspireID'])
 
         def test_hoover_assign_one_inspire_id_from_claimed_papers_with_different_inspireID():
             '''
@@ -276,14 +332,8 @@ class OneAuthorManyPapersHooverTestCase(BibAuthorIDHooverTestCase):
                 *Nothing has changed
             '''
 
-            claim_test_paper(self.second_bibrec)
-            inspireID_before = get_inspire_id_of_author(self.pid)
-            print "inspireID_before:", inspireID_before
-            hoover([self.pid])
-            inspireID_after = get_inspire_id_of_author(self.pid)
-            print "inspireID_after:", inspireID_after
-            self.assertEquals(inspireID_after, tuple())
-            self.clean_up_the_database(inspireID_after)
+            inspireID = get_inspire_id_of_author(self.pids['author9'])
+            self.assertEquals(inspireID, set())
 
         test_hoover_assign_one_inspire_id_from_unclaimed_papers_with_different_inspireID()
         test_hoover_assign_one_inspire_id_from_a_claimed_paper_and_unclaimed_paper_with_different_inspireID()
@@ -293,42 +343,9 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
 
     def setUp(self):
         super(ManyAuthorsHooverTestCase, self).setUp()
-        self.first_marcxml_record = get_new_marc_for_test(self.authors['author1']['name'], None, \
-                                                             ((self.authors['author1']['inspireID'], 'i'),))
-        self.second_marcxml_record = get_new_marc_for_test(self.authors['author2']['name'], None, \
-                                                             ((self.authors['author1']['inspireID'], 'i'),))
-        self.first_bibrec = get_bibrec_for_record(self.first_marcxml_record, opt_mode='insert')
-        self.first_marcxml_record = add_001_field(self.first_marcxml_record, self.first_bibrec)
-
-        self.second_bibrec = get_bibrec_for_record(self.second_marcxml_record, opt_mode='insert')
-        self.second_marcxml_record = add_001_field(self.second_marcxml_record, self.second_bibrec)
-
-        self.bibrecs_to_clean = [self.first_bibrec, self.second_bibrec]
-
-        rabbit([self.first_bibrec, self.second_bibrec], verbose=False)
-        self.current_bibref_value = get_bibref_value_for_name(self.authors['author1']['name']) #saved for following tests
-        self.pid_first_author = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s",\
-                                   (self.current_bibref_value, self.first_bibrec, self.authors['author1']['name']))[0][0]
-        print "First pid", self.pid_first_author
-        print "First bibref", self.current_bibref_value
-        self.current_bibref_value = get_bibref_value_for_name(self.authors['author2']['name']) #saved for following tests
-        self.pid_second_author = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s",\
-                                   (self.current_bibref_value, self.second_bibrec, self.authors['author2']['name']))[0][0]
-        print "Second pid", self.pid_second_author
-        print "Second bibref", self.current_bibref_value
-        print "first marc", self.first_marcxml_record
-        print "second marc", self.second_marcxml_record
-        print "first record", get_record(self.first_bibrec) 
-        print "second record", get_record(self.second_bibrec)
-        print "sql: ", run_sql('select * from aidPERSONIDPAPERS where name LIKE "author%"')
-
-
 
     def tearDown(self):
-        _delete_from_aidpersonidpapers_where(self.pid_first_author)
-        _delete_from_aidpersonidpapers_where(self.pid_second_author)
         super(ManyAuthorsHooverTestCase, self).tearDown()
-
 
     def test_many_authors(self):
 
@@ -345,39 +362,16 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
                 *The unclaimed paper of author2 is now moved to author1
             '''
 
-            claim_test_paper(self.first_bibrec)
-            first_author_papers_before = get_papers_of_author(self.pid_first_author)
-            second_author_papers_before = get_papers_of_author(self.pid_second_author)
-            inspireID_before = get_inspire_id_of_author(self.pid_first_author)
+            first_author_papers = get_papers_of_author(self.pids['author11'])
+            second_author_papers = get_papers_of_author(self.pids['author12'])
 
-            print "inspireID_before:", inspireID_before
-            print "first_author_papers_before:", first_author_papers_before
-            print "second_author_papers_before:", second_author_papers_before
+            inspireID1 = get_inspire_id_of_author(self.pids['author11'])
+            self.assertEquals(inspireID1, self.authors['author11']['inspireID'])
+            inspireID2 = get_inspire_id_of_author(self.pids['author12'])
+            self.assertEquals(inspireID2, set())
 
-            hoover([self.pid_second_author, self.pid_first_author])
-
-            first_author_papers_after = get_papers_of_author(self.pid_first_author)
-            second_author_papers_after = get_papers_of_author(self.pid_second_author)
-
-            first_author_inspireID_after = get_inspire_id_of_author(self.pid_first_author)
-            second_author_inspireID_after = get_inspire_id_of_author(self.pid_second_author)
-
-            print "first_author_inspireID_after:", first_author_inspireID_after
-            print "second_author_inspireID_after:", second_author_inspireID_after
-            print "first_author_papers_after:", first_author_papers_after
-            print "second_author_papers_after:", second_author_papers_after
-
-            self.assertEquals(first_author_inspireID_after, 'INSPIRE-FAKE_ID1')
-            self.assertEquals(second_author_inspireID_after, tuple())
-
-            first_author_papers_before = set(x[1:4] for x in first_author_papers_before)
-            second_author_papers_before = set(x[1:4] for x in second_author_papers_before)
-            first_author_papers_after = set(x[1:4] for x in first_author_papers_after)
-            second_author_papers_after = set(x[1:4] for x in second_author_papers_after)
-            self.assertEquals(first_author_papers_after, first_author_papers_before.union(second_author_papers_before))
-            self.assertEquals(second_author_papers_after, set())
-            self.clean_up_the_database(first_author_inspireID_after)
-            self.clean_up_the_database(second_author_inspireID_after)
+            self.assertEquals(len(first_author_papers), 2)
+            self.assertEquals(len(second_author_papers), 0)
 
         def test_hoover_vacuum_a_claimed_paper_with_an_inspire_id_from_a_claimed_paper():
             '''
@@ -392,44 +386,17 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
                 *Nothing else changes
             '''
 
-            self.second_marcxml_record = get_modified_marc_for_test(self.second_marcxml_record)
-            self.second_marcxml_record = get_bibrec_for_record(self.second_marcxml_record,
-                                                     opt_mode='replace')
-            rabbit([self.second_bibrec], verbose=False)
-            claim_test_paper(self.second_bibrec)
 
-            first_author_papers_before = get_papers_of_author(self.pid_first_author)
-            second_author_papers_before = get_papers_of_author(self.pid_second_author)
-            inspireID_before = get_inspire_id_of_author(self.pid_first_author)
+            first_author_papers = get_papers_of_author(self.pids['author13'])
+            second_author_papers = get_papers_of_author(self.pids['author14'])
 
-            print "inspireID_before:", inspireID_before
-            print "first_author_papers_before:", first_author_papers_before
-            print "second_author_papers_before:", second_author_papers_before
+            inspireID1 = get_inspire_id_of_author(self.pids['author13'])
+            self.assertEquals(inspireID1, self.authors['author13']['inspireID'])
+            inspireID2 = get_inspire_id_of_author(self.pids['author14'])
+            self.assertEquals(inspireID2, set())
 
-            hoover([self.pid_second_author, self.pid_first_author])
-
-            first_author_papers_after = get_papers_of_author(self.pid_first_author)
-            second_author_papers_after = get_papers_of_author(self.pid_second_author)
-
-            first_author_inspireID_after = get_inspire_id_of_author(self.pid_first_author)
-            second_author_inspireID_after = get_inspire_id_of_author(self.pid_second_author)
-
-            print "first_author_inspireID_after:", first_author_inspireID_after
-            print "second_author_inspireID_after:", second_author_inspireID_after
-            print "first_author_papers_after:", first_author_papers_after
-            print "second_author_papers_after:", second_author_papers_after
-
-            self.assertEquals(first_author_inspireID_after, 'INSPIRE-FAKE_ID1')
-            self.assertEquals(second_author_inspireID_after, tuple())
-
-            first_author_papers_before = set(x[1:4] for x in first_author_papers_before)
-            second_author_papers_before = set(x[1:4] for x in second_author_papers_before)
-            first_author_papers_after = set(x[1:4] for x in first_author_papers_after)
-            second_author_papers_after = set(x[1:4] for x in second_author_papers_after)
-            self.assertEquals(first_author_papers_after, first_author_papers_before)
-            self.assertEquals(second_author_papers_after, second_author_papers_before)
-            self.clean_up_the_database(first_author_inspireID_after)
-            self.clean_up_the_database(second_author_inspireID_after)
+            self.assertEquals(len(first_author_papers), 1)
+            self.assertEquals(len(second_author_papers), 1)
 
         test_hoover_vacuum_an_unclaimed_paper_with_an_inspire_id_from_a_claimed_paper()
         test_hoover_vacuum_a_claimed_paper_with_an_inspire_id_from_a_claimed_paper()
