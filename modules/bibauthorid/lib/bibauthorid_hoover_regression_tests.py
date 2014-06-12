@@ -185,7 +185,7 @@ class BibAuthorIDHooverTestCase(TestCase):
         self.bibrecs_to_clean = [self.bibrecs[key] for key in self.bibrecs]
         rabbit([self.bibrecs[key] for key in self.bibrecs], verbose=False)
 
-        for key in authors:
+        for key in self.authors:
             self.bibrefs[key] = get_bibref_value_for_name(self.authors[key]['name'])
             self.pids[key] = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.bibrefs[key], self.bibrecs[key.replace('author','paper')], self.authors[key]['name']))[0][0]
 
