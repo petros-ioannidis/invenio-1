@@ -187,7 +187,8 @@ class BibAuthorIDHooverTestCase(TestCase):
 
         for key in self.authors:
             self.bibrefs[key] = get_bibref_value_for_name(self.authors[key]['name'])
-            self.pids[key] = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.bibrefs[key], self.bibrecs[key.replace('author','paper')], self.authors[key]['name']))[0][0]
+            temp = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (self.bibrefs[key], self.bibrecs[key.replace('author','paper')], self.authors[key]['name']))
+            self.pids[key] = temp[0][0] if temp else set()
 
         claim_test_paper(self.bibrecs['paper4'])
         claim_test_paper(self.bibrecs['paper7'])
