@@ -221,14 +221,14 @@ def wipe_out_record_from_all_tables(recid):
                         {'bibrec_bibxxx': "bibrec_bib%i%ix" % (i, j)},
                         (recid,))
         # delete all unused bibxxx values:
-        #for i in range(0, 10):
-            #for j in range(0, 10):
-                #run_sql("DELETE %(bibxxx)s FROM %(bibxxx)s " \
-                        #" LEFT JOIN %(bibrec_bibxxx)s " \
-                        #" ON %(bibxxx)s.id=%(bibrec_bibxxx)s.id_bibxxx " \
-                        #" WHERE %(bibrec_bibxxx)s.id_bibrec IS NULL" % \
-                        #{'bibxxx': "bib%i%ix" % (i, j),
-                        #'bibrec_bibxxx': "bibrec_bib%i%ix" % (i, j)})
+        for i in range(0, 10):
+            for j in range(0, 10):
+                run_sql("DELETE %(bibxxx)s FROM %(bibxxx)s " \
+                        " LEFT JOIN %(bibrec_bibxxx)s " \
+                        " ON %(bibxxx)s.id=%(bibrec_bibxxx)s.id_bibxxx " \
+                        " WHERE %(bibrec_bibxxx)s.id_bibrec IS NULL" % \
+                        {'bibxxx': "bib%i%ix" % (i, j),
+                        'bibrec_bibxxx': "bibrec_bib%i%ix" % (i, j)})
         # delete from bibfmt:
         run_sql("DELETE FROM bibfmt WHERE id_bibrec=%s", (recid,))
         # delete from bibrec_bibdoc:
