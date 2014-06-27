@@ -199,6 +199,48 @@ def get_new_marc_for_test(author_name=None, co_authors_names=None,
         build_test_marcxml_field_new(record, 700, subfields)
     return tostring(record)
 
+def get_new_hepnames_marc_for_test(author_name=None, identifiers=None):
+    """
+    Returns a MarcXML string base on the given arguments.
+
+    @param author_name: the name of the first author
+    @type author_name: str
+
+    @param co_authors_names: the names of the secondary authors
+    @type co_authors_names: list
+    @type identifiers: list
+
+    @param code: the MARC code of the id
+    @type code: str
+
+    @return: the record casted into a string
+    @rtype: str
+    """
+    tup_ids = dict()
+
+    #if(identifiers):
+        #assert len(identifiers) == (len(co_authors_names) if co_authors_names else 0) + 1, "the identifier list does not have the same length as the author list. Identifier list: %d author_list: %d" % (len(identifiers), len(identifiers))
+    record = Element('record')
+    collection_name = "HEPNAMES"
+    build_test_marcxml_field(record, 980, collection_name)
+    #print identifiers
+    if author_name:
+        subfields = ((author_name, 'a'),)
+        print subfields
+        build_test_marcxml_field_new(record, 100, subfields)
+    subfields = tuple()
+    if identifiers:
+        #look at the paper
+        for ident, value in identifiers:
+
+            tup_ids = (('9', ident),)
+            tup_ids += (('a', value),)
+            subfields += tup_ids
+            #print subfields
+        print subfields
+        build_test_marcxml_field_new(record, 035, subfields)
+    return tostring(record)
+
 
 def add_001_field(marcxml_string, recid):
     marcxml = fromstring(marcxml_string)
