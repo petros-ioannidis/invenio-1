@@ -1,4 +1,3 @@
-import timeit
 import sys
 from time import time
 from invenio.search_engine import get_record, \
@@ -13,7 +12,8 @@ from invenio.bibauthorid_dbinterface import get_existing_authors, \
     get_orcid_id_of_author, destroy_partial_marc_caches
 from invenio.bibauthorid_general_utils import memoized
 import invenio.bibauthorid_dbinterface as db
-from invenio.bibauthorid_webapi import get_hepnames
+from invenio.bibauthorid_webapi import get_hepnames, add_cname_to_hepname_record
+
 try:
     from collections import defaultdict
 except ImportError:
@@ -92,6 +92,20 @@ def get_inspireID_from_hepnames(pid):
                             print 'Oh look there is something wrong with this HepNames record! ', hepname_record
                             print 'Dictionary: ', fields_dict
     return None
+
+def connect_hepnames_to_inspireID(pid, inspireID):
+    '''return inspireID of a pid by searching the hepnames'''
+    author_canonical_name = get_canonical_name_of_author(pid)
+    if not author_canonical_name:
+        return
+    if inspireID:
+        recid = perform_request_search(p="035:" + inspireID, cc="HepNames")
+        if recid:
+            if len(recid) > 1 :
+                raise Exception("More than one hepnames record found with the same inspire id")
+            hepname_record = get_record(recid[0])
+            print "I am connecting pid",pid,"canonical_name",author_canonical_name,"inspireID",inspireID
+            add_cname_to_hepname_record(author_canonical_name,recid)
 
 def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=False):
     claimed_paper_signatures = set([sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False)])
@@ -210,6 +224,7 @@ def hoover(authors=None):
 
                                       'unreliable': [lambda pid: get_inspireID_from_unclaimed_papers(pid, intersection_set=records_with_id)],
                                       'signatures_getter': get_signatures_with_inspireID,
+                                      'connection': connect_hepnames_to_inspireID,
                                       'data_dicts': { 
                                                       'pid_mapping': defaultdict(set),
                                                       'id_mapping': defaultdict(set)
@@ -227,6 +242,8 @@ def hoover(authors=None):
                                                        #lambda pid: get_inspireID_from_claimed_papers(pid, intersection_set=records_with_id)]
                                                     ],
                                       'signatures_getter': lambda x: list(),
+                                      'connection': lambda pid, _id: pass
+                                      'data_dicts': { 
                                       'data_dicts': { 
                                                       'pid_mapping': defaultdict(set),
                                                       'id_mapping': defaultdict(set)
@@ -279,6 +296,8 @@ def hoover(authors=None):
                         if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
                             print "Adding inspireid ", identifier, " to pid ", pid
                             add_external_id_to_author(pid, identifier_type, identifier)
+                            fdict_id_getters[identifier_type]['connection'](pid, identifier)
+
                     else:
                         raise Exception("More than one authors with the same identifier")
                 else:
@@ -314,6 +333,8 @@ def hoover(authors=None):
                 if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
                     print "Adding inspireid ", res, " to pid ", pid
                     add_external_id_to_author(pid, identifier_type, res)
+                    fdict_id_getters[identifier_type]['connection'](pid, identifier)
+
             except Exception, e:
                 print 'Something went terribly wrong even here(unreliable)! ', e
                 continue
