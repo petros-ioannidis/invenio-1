@@ -19,6 +19,94 @@ try:
 except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
 
+class ConflictingIds(Exception):
+    "Base class for conflicting ids in authors"
+
+    def __init__(self, message, pid, identifier_type):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        pid -- the pid of the author that caused the exception
+        identifier -- the type of the identifier that caused the exception
+        """
+        Exception.__init__(self, message)
+        self.pid = pid
+        self.identifier_type = identifier_type
+
+class ConflictingIdsFromReliableSource(ConflictingIds):
+    "Class for conflicting ids in authors that are caused from reliable sources"
+    pass
+
+class ConflictingIdsFromUnreliableSource(ConflictingIds):
+    "Class for conflicting ids in authors that are caused from unreliable sources"
+    pass
+
+class DuplicatePaper(Exception):
+    "Base class for duplicated papers conflicts"
+
+    def __init__(self, message, pid):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        pid -- the pid of the author that caused the exception
+        identifier -- the type of the identifier that caused the exception
+        """
+        Exception.__init__(self, message)
+        self.pid = pid
+
+class DuplicateClaimedPaper(DuplicatePaper):
+    "Class for duplicated papers conflicts when one of them is claimed"
+    pass
+
+class DuplicateUnclaimedPaper(DuplicatePaper):
+    "Class for duplicated papers conflicts when one of them is unclaimed"
+    pass
+
+class BrokenHepNamesRecord(Exception):
+    "Base class for broken HepNames records"
+
+    def __init__(self, message, recid, identifier_type):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        recid -- the recid of the record that caused the exception
+        identifier -- the type of the identifier that caused the exception
+        """
+        Exception.__init__(self, message)
+        self.recid = recid
+        self.identifier_type = identifier_type
+
+class MultipleHepnamesRecordsWithSameId(Exception):
+    "Base class for conflicting HepNames records"
+
+    def __init__(self, message, recids, identifier_type):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        recids -- an iterable with the record ids that are conflicting
+        identifier -- the type of the identifier that caused the exception
+        """
+        Exception.__init__(self, message)
+        self.recids = tuple(recids)
+        self.identifier_type = identifier_type
+
+class NoCanonicalName(Exception):
+    "Base class for no canonical name found for a pid"
+
+    def __init__(self, message, pid):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        pid -- the pid of the author that lacks a canonical name
+        """
+        Exception.__init__(self, message)
+        self.pid = pid
+
 def timed(func):
     def print_time(*args, **kwargs):
         t0 = time()
@@ -28,7 +116,7 @@ def timed(func):
     return print_time
 
 def get_signatures_with_inspireID_sql(inspireID):
-    '''Signatures of specific inspireID using an Sql query'''
+    """Signatures of specific inspireID using an Sql query"""
     signatures = run_sql("SELECT 100, secondbib.id, firstbibrec.id_bibrec \
                             FROM bib10x AS firstbib \
                             INNER JOIN bibrec_bib10x AS firstbibrec ON firstbib.id=firstbibrec.id_bibxxx \
@@ -47,7 +135,7 @@ def get_signatures_with_inspireID_sql(inspireID):
     return signatures
 
 def _get_signatures_with_tag_value_cache(value, tag_ending):
-    '''Signatures of specific inspireID using CACHE'''
+    """Signatures of specific inspireID using CACHE"""
     signatures = []
     LC = db.MARC_100_700_CACHE
     if ('100'+tag_ending, value) in LC['inverted_b100']:
@@ -74,63 +162,71 @@ def get_signatures_with_orcid_cache(orcid):
     return _get_signatures_with_tag_value_cache(orcid, '__j')
 
 def get_inspireID_from_hepnames(pid):
-    '''return inspireID of a pid by searching the hepnames'''
+    """return inspireID of a pid by searching the hepnames
+    
+    pid -- the pid of the author to search in the hepnames dataset
+    """
     author_canonical_name = get_canonical_name_of_author(pid)
-
-    if author_canonical_name:
+    try:
         recid = perform_request_search(p="035:" + author_canonical_name[0][0], cc="HepNames")
-        if recid:
-            hepname_record = get_record(recid[0])
-            if hepname_record:
-                if '035' in hepname_record:
-                    fields_dict = [dict(x[0]) for x in hepname_record['035']]
-                    for d in fields_dict:
-                        try:
-                            if d['9'] == 'INSPIRE':
-                                return d['a']
-                        except KeyError, e:
-                            print 'Oh look there is something wrong with this HepNames record! ', hepname_record
-                            print 'Dictionary: ', fields_dict
-    return None
-
+        hepname_record = get_record(recid[0])
+        fields_dict = [dict(x[0]) for x in hepname_record['035']]
+        for d in fields_dict:
+            if '9' in d and d['9'] == 'INSPIRE':
+                try:
+                    return d['a']
+                except KeyError:
+                    raise BrokenHepNamesRecord("Broken HepNames record", recid, 'INSPIREID')
+    except TypeError:
+        return None
+    except KeyError:
+        return None
+    
 def connect_hepnames_to_inspireID(pid, inspireID):
-    '''return inspireID of a pid by searching the hepnames'''
+    """Connect the hepnames record with the record of the inspireID
+    
+    pid -- the pid of the author that has the inspireID
+    inspireID -- the inspireID of the author
+    """
     author_canonical_name = get_canonical_name_of_author(pid)
-    if not author_canonical_name:
-        return
-    if inspireID:
-        recid = perform_request_search(p="035:" + inspireID, cc="HepNames")
-        if recid:
-            if len(recid) > 1 :
-                raise Exception("More than one hepnames record found with the same inspire id")
-            hepname_record = get_record(recid[0])
-            print "I am connecting pid",pid,"canonical_name",author_canonical_name,"inspireID",inspireID
-            add_cname_to_hepname_record(author_canonical_name,recid)
+    #this should change
+    #to an exception
+    assert author_canonical_name
+    recid = perform_request_search(p="035:" + inspireID, cc="HepNames")
+    if recid:
+        if len(recid) > 1 :
+            raise MultipleHepnamesRecordsWithSameId("More than one hepnames record found with the same inspire id", recid, 'INSPIREID')
+        hepname_record = get_record(recid[0])
+        print "I am connecting pid",pid,"canonical_name",author_canonical_name,"inspireID",inspireID
+        add_cname_to_hepname_record(author_canonical_name,recid)
 
 def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=False):
-    claimed_paper_signatures = set([sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False)])
-    unclaimed_paper_signatures = set([sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False)])
+    claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
+    unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
 
     signatures_to_vacuum = (set(signatures) - unclaimed_paper_signatures) - claimed_paper_signatures
-
     claimed_paper_records = set(rec[2] for rec in claimed_paper_signatures)
     unclaimed_paper_records = set(rec[2] for rec in unclaimed_paper_signatures)
+    #different signature same paper for an author
+    expt = None
     for sig in signatures_to_vacuum:
         if sig[2] in claimed_paper_records:
-            continue
-            #raise Exception("Conflict in claimed papers")
+            #outside of for
+            expt = DuplicateClaimedPaper("Vacuum a duplicated claimed paper", pid)
 
         if sig[2] in unclaimed_paper_records:
-            #move
-            #create_new_author_by_signature(sig)
             print "Conflict in pid ",pid ," with signature ", sig
             new_pid = get_free_author_id()
             print "Moving  conflicting signature ",sig ," from pid ", pid, " to pid ", new_pid
             move_signature(sig, new_pid)
-            #raise Exception("Conflict in unclaimed papers")
+            #should or shouldn't
+            #check after
+            #expt = raise DuplicateUnclaimedPaper("Vacuum a duplicated unclaimed paper", pid)
         print "Hoovering ",sig ," to pid ", pid
         move_signature(sig, pid)
 
+    if expt:
+        raise expt
     if check_if_all_signatures_where_vacuumed:
         paper_signatures = set([sig[1:4] for sig in get_papers_of_author(pid)])
         print "Paper_signatures", paper_signatures
@@ -148,69 +244,100 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
 
 
 def get_signatures_with_inspireID(inspireID):
-    '''get and vacuum of the signatures that belong to this inspire id'''
+    """get and vacuum of the signatures that belong to this inspireID
+    
+    inspireID -- the string containing the inspireID
+    """
     print "I was called with inspireID", inspireID
     return get_signatures_with_inspireID_cache(inspireID)
-    #sql = timed(get_signatures_with_inspireID_sql)(inspireID)
 
 def get_records_with_tag(tag):
-    '''return all the records with a specific tag'''
+    """return all the records with a specific tag
+    
+    tag -- the tag to search for
+    """
     assert tag in ['100__i', '100__j', '700__i', '700__j']
     if tag.startswith("100"):
         return run_sql("select id_bibrec from bibrec_bib10x where id_bibxxx in (select id from bib10x where tag=%s)" ,(tag,))
     if tag.startswith("700"):
         return run_sql("select id_bibrec from bibrec_bib70x where id_bibxxx in (select id from bib70x where tag=%s)" ,(tag,))
 
-
-
-#For both methods: the check for the id to be unique should be done outside of the function.
-#Good old unix principle of do one thin and do it well...
-
 def get_inspireID_from_claimed_papers(pid, intersection_set=None):
-    claimed_paper_signatures = get_papers_of_author(pid, include_unclaimed=False)
-    if intersection_set:
-        #claimed_paper_signatures = set(claimed_paper_signatures) & intersection_set
-        claimed_paper_signatures = [x for x in claimed_paper_signatures if x[3] in intersection_set]
-    inspireID_list = []
+    """returns the inspireID found inside the claimed papers of the author.
+    This happens only in case all the inspireIDs are the same, 
+    if there is  a conflict in the inspireIDs of the papers the 
+    ConflictingIdsFromReliableSource exception is raised
 
+    arguments:
+    pid -- the pid of the author
+    intersection_set -- a set of paper signatures. The unclaimed paper 
+                        signatures are then intersected with this set.
+                        the result is used for the inspireID search.
+    """
+    claimed_papers = get_papers_of_author(pid, include_unclaimed=False)
+    if intersection_set:
+        claimed_papers = filter(lambda x: x[3] in intersection_set, claimed_papers)
+        #claimed_papers = [x for x in claimed_paper_signatures if x[3] in intersection_set]
+    claimed_paper_signatures = (x[1:4] for x in claimed_papers)
+
+    inspireID_list = []
     for sig in claimed_paper_signatures:
-        inspireID = get_inspire_id_of_signature(sig[1:4])
+        inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
+            assert(len(inspireID) == 1)
             inspireID_list.append(inspireID[0])
-        #if all ids are the same
-    if inspireID_list:
+
+    try:
         if inspireID_list[1:] == inspireID_list[:-1]:
             return inspireID_list[0]
-        raise Exception("InspireID conflict")
-    return None
+    except IndexError:
+        return None
+    else:
+        raise ConflictingIdsFromReliableSource('Claimed Papers', pid, 'INSPIREID')
+
 
 def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
-    unclaimed_paper_signatures = get_papers_of_author(pid, include_claimed=False)
-    if intersection_set:
-        #unclaimed_paper_signatures = set(unclaimed_paper_signatures) & intersection_set
-        unclaimed_paper_signatures = [x for x in unclaimed_paper_signatures if x[3] in intersection_set]
-    inspireID_list = []
+    """returns the inspireID found inside the unclaimed papers of the author.
+    This happens only in case all the inspireIDs are the same, 
+    if there is  a conflict in the inspireIDs of the papers the 
+    ConflictingIdsFromUnreliableSource exception is raised
 
+    arguments:
+    pid -- the pid of the author
+    intersection_set -- a set of paper signatures. The unclaimed paper 
+                        signatures are then intersected with this set.
+                        the result is used for the inspireID search.
+    """
+    unclaimed_papers = get_papers_of_author(pid, include_claimed=False)
+    if intersection_set:
+        unclaimed_papers = filter(lambda x: x[3] in intersection_set, unclaimed_papers)
+    unclaimed_paper_signatures = (x[1:4] for x in unclaimed_papers)
+
+    inspireIDs_list = []
     for sig in unclaimed_paper_signatures:
-        inspireID = get_inspire_id_of_signature(sig[1:4])
+        inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
-            inspireID_list.append(inspireID[0])
-        #if all ids are the same
-    if inspireID_list:
-        if inspireID_list[1:] == inspireID_list[:-1]:
-            return inspireID_list[0]
-    return None
+            assert(len(inspireID) == 1)
+            inspireIDs_list.append(inspireID[0])
+
+    try:
+        if inspireIDs_list[1:] == inspireIDs_list[:-1]:
+            return inspireIDs_list[0]
+    except IndexError:
+        return None
+    else:
+        raise ConflictingIdsFromUnreliableSource('Unclaimed Papers', pid, 'INSPIREID')
 
 def hoover(authors=None):
-    '''Long description'''
+    """Long description"""
 
     recs = get_records_with_tag('100__i')
     recs += get_records_with_tag('100__j')
     recs += get_records_with_tag('700__i')
     recs += get_records_with_tag('700__j')
-    recs1 = run_sql("select DISTINCT(bibrec) from aidPERSONIDPAPERS")
-    recs = set(recs) & set(recs1)
-    records_with_id = set(rec[0] for rec in set(recs))
+    recs = set(recs) & run_sql("select DISTINCT(bibrec) from aidPERSONIDPAPERS")
+
+    records_with_id = set(rec[0] for rec in recs)
     #records_with_id = [rec[0] for rec in set(recs)]
     
     destroy_partial_marc_caches()
@@ -242,8 +369,7 @@ def hoover(authors=None):
                                                        #lambda pid: get_inspireID_from_claimed_papers(pid, intersection_set=records_with_id)]
                                                     ],
                                       'signatures_getter': lambda x: list(),
-                                      'connection': lambda pid, _id: pass
-                                      'data_dicts': { 
+                                      'connection': lambda pid, _id: None,
                                       'data_dicts': { 
                                                       'pid_mapping': defaultdict(set),
                                                       'id_mapping': defaultdict(set)
@@ -267,21 +393,18 @@ def hoover(authors=None):
         for identifier_type, functions in fdict_id_getters.iteritems():
             print "\npid ",pid
             G = (func(pid) for func in functions['reliable'])
-            try:
-                res = next((func for func in G if func), None)
-                print "found reliable id", res
-            except Exception, e:
-                print 'Something went terribly wrong! ', str(e)
-                continue
+            #try:
+            res = next((func for func in G if func), None)
+            print "found reliable id", res
+            #except Exception, e:
+                #print 'Something went terribly wrong! ', str(e)
+                #continue
 
             if res:
                 fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
                 fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
             else:
                 unclaimed_authors[identifier_type].add(pid)
-                continue
-
-            assert res, 'res here should never be None'
 
     for identifier_type, data in fdict_id_getters.iteritems():
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
