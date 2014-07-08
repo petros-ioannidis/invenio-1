@@ -233,14 +233,13 @@ def get_new_hepnames_marc_for_test(author_name=None, identifiers=None):
         #look at the paper
         for ident, value in identifiers:
 
-            tup_ids = (('9', ident),)
-            tup_ids += (('a', value),)
+            tup_ids = ((ident, '9'),)
+            tup_ids += ((value, 'a'),)
             subfields += tup_ids
             #print subfields
         print subfields
         build_test_marcxml_field_new(record, 035, subfields)
     return tostring(record)
-
 
 def add_001_field(marcxml_string, recid):
     marcxml = fromstring(marcxml_string)

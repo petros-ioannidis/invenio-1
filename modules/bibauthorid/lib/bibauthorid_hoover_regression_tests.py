@@ -1,23 +1,38 @@
+from unittest import *
+import os
+
 from invenio.testutils import make_test_suite
 from invenio.testutils import run_test_suite
 
 from invenio.bibauthorid_testutils import *
 
-from unittest import *
-
 from invenio.bibtask import setup_loggers
 from invenio.bibtask import task_set_task_param
+from invenio.bibtask import task_low_level_submission
+
 from invenio.bibupload_regression_tests import wipe_out_record_from_all_tables
 from invenio.dbquery import run_sql
-from invenio.bibauthorid_rabbit import rabbit
+
 import invenio.bibauthorid_rabbit
-from invenio.bibauthorid_hoover import hoover
+from invenio.bibauthorid_rabbit import rabbit
+
 import invenio.bibauthorid_hoover
+from invenio.bibauthorid_hoover import hoover
+
 from invenio.bibauthorid_dbinterface import get_inspire_id_of_author
 from invenio.bibauthorid_dbinterface import _delete_from_aidpersonidpapers_where
 from invenio.bibauthorid_dbinterface import get_papers_of_author
+
 from invenio.search_engine import get_record
 
+def index_hepnames_authors():
+    """runs bibindex for the index '_type' and returns the task_id"""
+    program = os.path.join(CFG_BINDIR, 'bibindex')
+    #Add hepnames collection
+    task_id = task_low_level_submission('bibindex', 'hoover_regression_tests', '-w', 'author', '-u', 'admin', )
+    COMMAND = "%s %s > /dev/null 2> /dev/null" % (program, str(task_id))
+    os.system(COMMAND)
+    return task_id
 
 def clean_up_the_database(inspireID):
     if inspireID:
@@ -25,6 +40,7 @@ def clean_up_the_database(inspireID):
 
 class BibAuthorIDHooverTestCase(TestCase):
 
+    run_exec = False
     @classmethod
     def setUpClass(cls):
         print 'Init'
@@ -33,10 +49,7 @@ class BibAuthorIDHooverTestCase(TestCase):
         #print dir(cls)
         #if 'run' in dir(cls) and cls.run:
             #return
-        try:
-            cls.run_exec
-            return
-        except:
+        if run_exec:
             print 'I am not defined'
             pass
         cls.run_exec = True
