@@ -19,7 +19,7 @@ import invenio.bibauthorid_config as bconfig
 from invenio.bibauthorid_webapi import get_hepnames, add_cname_to_hepname_record
 from invenio.bibcatalog import BIBCATALOG_SYSTEM
 
-# TODO: LOGGER!!!!
+logger = Logger('Hoover')
 
 try:
     from collections import defaultdict
@@ -39,14 +39,14 @@ def open_rt_ticket(e):
         BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=text,
                                         queue=queue, priority="", owner="", requestor="")
     else:
-        print msg
+        logger.log(msg)
 
 
 def timed(func):
     def print_time(*args, **kwds):
         t0 = time()
         res = func(*args, **kwds)
-        print func.__name__, ': with args: ', args, kwds, ' took: ', time() - t0
+        logger.log(func.__name__, ': with args: ', args, kwds, ' took: ', time() - t0)
         return res
     return print_time
 
@@ -275,7 +275,7 @@ def connect_hepnames_to_inspireID(pid, inspireID):
                 recid,
                 'INSPIREID')
         hepname_record = get_record(recid[0])
-        print "I am connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID
+        logger.log("I am connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID)
         add_cname_to_hepname_record(author_canonical_name, recid)
 
 
@@ -294,14 +294,14 @@ class vacuumer(object):
             if signature[2] in self.claimed_paper_records:
                 raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
             if signature[2] in self.unclaimed_paper_records:
-                print "Conflict in pid ", self.pid, " with signature ", signature
+                logger.log("Conflict in pid ", self.pid, " with signature ", signature)
                 new_pid = get_free_author_id()
-                print "Moving  conflicting signature ", signature, " from pid ", self.pid, " to pid ", new_pid
+                logger.log("Moving  conflicting signature ", signature, " from pid ", self.pid, " to pid ", new_pid)
                 move_signature(signature, new_pid)
                 # should or shouldn't
                 # check after
                 raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
-            print "Hoovering ", signature, " to pid ", self.pid
+            logger.log("Hoovering ", signature, " to pid ", self.pid)
             move_signature(signature, self.pid)
 
 
@@ -320,25 +320,25 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
             expt = DuplicateClaimedPaper("Vacuum a duplicated claimed paper", pid)
 
         if sig[2] in unclaimed_paper_records:
-            print "Conflict in pid ", pid, " with signature ", sig
+            logger.log("Conflict in pid ", pid, " with signature ", sig)
             new_pid = get_free_author_id()
-            print "Moving  conflicting signature ", sig, " from pid ", pid, " to pid ", new_pid
+            logger.log("Moving  conflicting signature ", sig, " from pid ", pid, " to pid ", new_pid)
             move_signature(sig, new_pid)
             # should or shouldn't
             # check after
             # expt = raise DuplicateUnclaimedPaper("Vacuum a duplicated unclaimed paper", pid)
-        print "Hoovering ", sig, " to pid ", pid
+        logger.log("Hoovering ", sig, " to pid ", pid)
         move_signature(sig, pid)
 
     if expt:
         raise expt
     if check_if_all_signatures_where_vacuumed:
         paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid))
-        print "Paper_signatures", paper_signatures
+        logger.log("Paper_signatures", paper_signatures)
         total_signatures = set(signatures)
-        print "total_signatures", total_signatures
+        logger.log("total_signatures", total_signatures)
         total_signatures = total_signatures.union(unclaimed_paper_signatures).union(claimed_paper_signatures)
-        print "Second total_signatures", total_signatures
+        logger.log("Second total_signatures", total_signatures)
         if paper_signatures == total_signatures:
             return True
         # exception instead of false
@@ -354,7 +354,7 @@ def get_signatures_with_inspireID(inspireID):
     arguments:
     inspireID -- the string containing the inspireID
     """
-    print "I was called with inspireID", inspireID
+    logger.log("I was called with inspireID", inspireID)
     return get_signatures_with_inspireID_cache(inspireID)
 
 
@@ -496,24 +496,24 @@ def hoover(authors=None):
     # change the names
     if not authors:
         authors = get_existing_authors()
-    print "running on ", len(authors), " !"
+    logger.log("running on ", len(authors), " !")
 
     unclaimed_authors = defaultdict(set)
     reliable = True
     for index, pid in enumerate(authors):
         for identifier_type, functions in fdict_id_getters.iteritems():
-            print "\npid ", pid
+            logger.log("\npid ", pid)
             G = (func(pid) for func in functions['reliable'])
             # try:
             try:
                 res = next((func for func in G if func), None)
-            except ConflictingIdsFromReliableSourceException as e:
+            except ConflictingIdsFromReliableSourceException:
                 open_rt_ticket(e)
-            except BrokenHepNamesRecordException as e:
+            except BrokenHepNamesRecordException:
                 open_rt_ticket(e)
-            print "found reliable id", res
+            logger.log("found reliable id", res)
             # except Exception, e:
-                # print 'Something went terribly wrong! ', str(e)
+                # logger.log('Something went terribly wrong! ', str(e))
                 # continue
 
             if res:
@@ -528,11 +528,11 @@ def hoover(authors=None):
             try:
                 if len(identifiers) == 1:
                     identifier = list(identifiers)[0]
-                    print "identifier", identifier
+                    logger.log("identifier", identifier)
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
                         rowenta = vacuumer(pid)
                         signatures = data['signatures_getter'](identifier)
-                        print "signatures", signatures
+                        logger.log("signatures", signatures)
                         for sig in signatures:
                             try:
                                 rowenta.vacuum_signatures(sig)
@@ -541,11 +541,11 @@ def hoover(authors=None):
                             except DuplicateUnclaimedPaperException as e:
                                 unclaimed_authors[identifier_type].add(e.pid)
                             finally:
-                                print "Adding inspireid ", identifier, " to pid ", pid
+                                logger.log("Adding inspireid ", identifier, " to pid ", pid)
                                 add_external_id_to_author(pid, identifier_type, identifier)
                                 fdict_id_getters[identifier_type]['connection'](pid, identifier)
                         # if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
-                            # print "Adding inspireid ", identifier, " to pid ", pid
+                            # logger.log("Adding inspireid ", identifier, " to pid ", pid)
                             # add_external_id_to_author(pid, identifier_type, identifier)
                             # fdict_id_getters[identifier_type]['connection'](pid, identifier)
 
@@ -563,24 +563,24 @@ def hoover(authors=None):
 
             except MultipleAuthorsWithSameIdException as e:
                 open_rt_ticket(e)
-                print 'Something went terribly wrong even here(reliable)! ', e
+                logger.log('Something went terribly wrong even here(reliable)! ', e)
             except MultipleIdsOnSingleAuthorException as e:
                 open_rt_ticket(e)
-                print 'Something went terribly wrong even here(reliable)! ', e
+                logger.log('Something went terribly wrong even here(reliable)! ', e)
 
-    print "we are entering the twilight zone"
+    logger.log("we are entering the twilight zone")
     reliable = False
     for index, pid in enumerate(unclaimed_authors[identifier_type]):
         for identifier_type, functions in fdict_id_getters.iteritems():
 
-            print "\npid ", pid
+            logger.log("\npid ", pid)
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
-                print "found unreliable id", res
-            except ConflictingIdsFromUnreliableSourceException as e:
+                logger.log("found unreliable id", res)
+            except ConflictingIdsFromUnreliableSourceException:
                 open_rt_ticket(e)
-            except BrokenHepNamesRecordException as e:
+            except BrokenHepNamesRecordException:
                 open_rt_ticket(e)
 
             if not res:
@@ -588,8 +588,8 @@ def hoover(authors=None):
 
             assert res, 'res here should never be None'
             if res in fdict_id_getters[identifier_type]['data_dicts']['id_mapping']:
-                print "Id", res, " already there"
-                print "skipping author", pid
+                logger.log("Id", res, " already there")
+                logger.log("skipping author", pid)
                 continue
             rowenta = vacuumer(pid)
             signatures = functions['signatures_getter'](res)
@@ -601,11 +601,11 @@ def hoover(authors=None):
                 except DuplicateUnclaimedPaperException as e:
                     pass
                 finally:
-                    print "Adding inspireid ", identifier, " to pid ", pid
+                    logger.log("Adding inspireid ", identifier, " to pid ", pid)
                     add_external_id_to_author(pid, identifier_type, identifier)
                     fdict_id_getters[identifier_type]['connection'](pid, identifier)
 
 if __name__ == "__main__":
-    print "Initializing hoover"
+    logger.log("Initializing hoover")
     hoover()
-    print "Terminating hoover"
+    logger.log("Terminating hoover")
