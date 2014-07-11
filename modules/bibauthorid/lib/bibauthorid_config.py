@@ -182,7 +182,7 @@ LIMIT_EXTERNAL_IDS_COLLECTION_TO_CLAIMED_PAPERS = True
 LOG_UPDATE_STATUS = True
 
 # General messages logged by applications. Use for extra monitoring.
-LOG_VERBOSE = False
+LOG_VERBOSE = True
 
 # Log to files.
 LOG_TO_PIDFILE = False

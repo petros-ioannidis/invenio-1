@@ -765,21 +765,59 @@ def get_papers_of_author(pid, include_claimed=True, include_unclaimed=True, incl
     @return: records ((personid, bibref_table, bibref_value, bibrec, flag),)
     @rtype: generator ((int, str, int, int, int),)
     '''
-    query = ('select bibrec '
-             'from aidPERSONIDPAPERS '
-             'where personid=%s')
+    args = []
+    if include_claimed:
+        args.append("flag=2")
+    if include_unclaimed:
+        args.append("(flag>-2 and flag<2)")
+    if include_rejected:
+        args.append("flag=-2")
 
-    # Standard case: get all assigned papers excluding rejected
-    if not claimed_only and not include_rejected:
-        query += " and flag>-2"
-    # Get claimed and rejected papers only (human interaction footprint)
-    elif claimed_only and include_rejected:
-        query += " and (flag=2 or flag=-2)"
-    # Standard case: get only claimed papers
-    elif claimed_only and not include_rejected:
-        query += " and flag=2"
+    where_str = ""
+    if args:
+        where_str = " and ( %s )" % " or ".join(args)
+        query = ('select personid, bibref_table, bibref_value, bibrec, flag '
+                 'from aidPERSONIDPAPERS '
+                 'where personid=%s' + where_str)
 
-    return set(run_sql(query, (pid,) ))
+        return set(run_sql(query, (pid,) ))
+    return set()
+
+#def get_papers_of_author(pid, include_claimed=True, include_unclaimed=True, include_rejected=False):   ### get_all_paper_records
+#    '''
+#    Gets all papers for the specific author. If 'include_claimed' flag is enabled
+#    it takes into account claimed papers. Additionally if
+#    'include_unclaimed' flag is enabled, it takes also into account unclaimed
+#    papers as well. Finally, if 'include_rejected' flag is enabled, it takes also
+#    into account rejecte papers.
+#
+#    @param pid: author identifier
+#    @type pid: int
+#    @param include_claimed: include a paper if it is claimed
+#    @type include_claimed: bool
+#    @param include_unclaimed: include unclaimed papers
+#    @type include_unclaimed: bool
+#    @param include_rejected: include rejected papers
+#    @type include_rejected: bool
+#
+#    @return: records ((personid, bibref_table, bibref_value, bibrec, flag),)
+#    @rtype: generator ((int, str, int, int, int),)
+#    '''
+#    query = ('select bibrec '
+#             'from aidPERSONIDPAPERS '
+#             'where personid=%s')
+#
+#    # Standard case: get all assigned papers excluding rejected
+#    if not claimed_only and not include_rejected:
+#        query += " and flag>-2"
+#    # Get claimed and rejected papers only (human interaction footprint)
+#    elif claimed_only and include_rejected:
+#        query += " and (flag=2 or flag=-2)"
+#    # Standard case: get only claimed papers
+#    elif claimed_only and not include_rejected:
+#        query += " and flag=2"
+#
+#    return set(run_sql(query, (pid,) ))
 
 
 def get_confirmed_papers_of_authors(pids):  # get_all_papers_of_pids
