@@ -19,12 +19,13 @@ import invenio.bibauthorid_config as bconfig
 from invenio.bibauthorid_webapi import get_hepnames, add_cname_to_hepname_record
 from invenio.bibcatalog import BIBCATALOG_SYSTEM
 
-#TODO: LOGGER!!!!
+# TODO: LOGGER!!!!
 
 try:
     from collections import defaultdict
 except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
+
 
 def open_rt_ticket():
 
@@ -33,21 +34,23 @@ def open_rt_ticket():
     queue = ""
     if bconfig.HOOVER_OPEN_RT_TICKETS:
         BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=text,
-                      queue=queue, priority="", owner="", requestor="")
+                                        queue=queue, priority="", owner="", requestor="")
     else:
         print "blablabla"
+
 
 def timed(func):
     def print_time(*args, **kwds):
         t0 = time()
         res = func(*args, **kwds)
-        print func.__name__, ': with args: ', args, kwds, ' took: ', time()-t0
+        print func.__name__, ': with args: ', args, kwds, ' took: ', time() - t0
         return res
     return print_time
 
+
 class ConflictingIdsException(Exception):
 
-    "Base class for conflicting ids in authors"
+    """Base class for conflicting ids in authors"""
 
     def __init__(self, message, pid, identifier_type):
         """Set up the exception class
@@ -61,21 +64,22 @@ class ConflictingIdsException(Exception):
         self.pid = pid
         self.identifier_type = identifier_type
 
+
 class ConflictingIdsFromReliableSourceException(ConflictingIdsException):
 
-    "Class for conflicting ids in authors that are caused from reliable sources"
+    """Class for conflicting ids in authors that are caused from reliable sources"""
     pass
 
 
 class ConflictingIdsFromUnreliableSourceException(ConflictingIdsException):
 
-    "Class for conflicting ids in authors that are caused from unreliable sources"
+    """Class for conflicting ids in authors that are caused from unreliable sources"""
     pass
 
 
 class DuplicatePaperException(Exception):
 
-    "Base class for duplicated papers conflicts"
+    """Base class for duplicated papers conflicts"""
 
     def __init__(self, message, pid, signature):
         """Set up the exception class
@@ -92,19 +96,19 @@ class DuplicatePaperException(Exception):
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
 
-    "Class for duplicated papers conflicts when one of them is claimed"
+    """Class for duplicated papers conflicts when one of them is claimed"""
     pass
 
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
 
-    "Class for duplicated papers conflicts when one of them is unclaimed"
+    """Class for duplicated papers conflicts when one of them is unclaimed"""
     pass
 
 
 class BrokenHepNamesRecordException(Exception):
 
-    "Base class for broken HepNames records"
+    """Base class for broken HepNames records"""
 
     def __init__(self, message, recid, identifier_type):
         """Set up the exception class
@@ -121,7 +125,7 @@ class BrokenHepNamesRecordException(Exception):
 
 class MultipleHepnamesRecordsWithSameIdException(Exception):
 
-    "Base class for conflicting HepNames records"
+    """Base class for conflicting HepNames records"""
 
     def __init__(self, message, recids, identifier_type):
         """Set up the exception class
@@ -135,9 +139,10 @@ class MultipleHepnamesRecordsWithSameIdException(Exception):
         self.recids = tuple(recids)
         self.identifier_type = identifier_type
 
+
 class MultipleAuthorsWithSameIdException(Exception):
 
-    "Base class for multiple authors with the same id"
+    """Base class for multiple authors with the same id"""
 
     def __init__(self, message, pids, identifier_type):
         """Set up the exception class
@@ -151,9 +156,10 @@ class MultipleAuthorsWithSameIdException(Exception):
         self.pids = tuple(pids)
         self.identifier_type = identifier_type
 
+
 class MultipleIdsOnSingleAuthorException(Exception):
 
-    "Base class for multiple ids on a single author"
+    """Base class for multiple ids on a single author"""
 
     def __init__(self, message, pid, ids, identifier_type):
         """Set up the exception class
@@ -169,9 +175,10 @@ class MultipleIdsOnSingleAuthorException(Exception):
         self.ids = tuple(ids)
         self.identifier_type = identifier_type
 
+
 class NoCanonicalNameException(Exception):
 
-    "Base class for no canonical name found for a pid"
+    """Base class for no canonical name found for a pid"""
 
     def __init__(self, message, pid):
         """Set up the exception class
@@ -182,6 +189,7 @@ class NoCanonicalNameException(Exception):
         """
         Exception.__init__(self, message)
         self.pid = pid
+
 
 def get_signatures_with_inspireID_sql(inspireID):
     """Signatures of specific inspireID using an Sql query"""
@@ -278,27 +286,28 @@ def connect_hepnames_to_inspireID(pid, inspireID):
 
 
 class vacuumer(object):
+
     def __init__(self, pid):
         self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
         self.unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
         self.claimed_paper_records = set(rec[2] for rec in self.claimed_paper_signatures)
         self.unclaimed_paper_records = set(rec[2] for rec in self.unclaimed_paper_signatures)
         self.pid = pid
-    #different signature same paper for an author
+    # different signature same paper for an author
 
     def vacuum_signatures(self, signature):
         if signature not in self.unclaimed_paper_signatures and signature not in self.claimed_paper_signatures:
             if signature[2] in self.claimed_paper_records:
                 raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
             if signature[2] in self.unclaimed_paper_records:
-                print "Conflict in pid ",self.pid ," with signature ", signature
+                print "Conflict in pid ", self.pid, " with signature ", signature
                 new_pid = get_free_author_id()
-                print "Moving  conflicting signature ",signature ," from pid ", self.pid, " to pid ", new_pid
+                print "Moving  conflicting signature ", signature, " from pid ", self.pid, " to pid ", new_pid
                 move_signature(signature, new_pid)
-                #should or shouldn't
-                #check after
+                # should or shouldn't
+                # check after
                 raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
-            print "Hoovering ",signature ," to pid ", self.pid
+            print "Hoovering ", signature, " to pid ", self.pid
             move_signature(signature, self.pid)
 
 
@@ -338,7 +347,7 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
         print "Second total_signatures", total_signatures
         if paper_signatures == total_signatures:
             return True
-        #exception instead of false
+        # exception instead of false
         return False
     else:
         # we assume all signatures were vacuumed correctly and skip an expensive test.
@@ -431,6 +440,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
         return None
     else:
         raise ConflictingIdsFromUnreliableSourceException('Unclaimed Papers', pid, 'INSPIREID')
+
 
 @timed
 def hoover(authors=None):
@@ -538,20 +548,29 @@ def hoover(authors=None):
                                 print "Adding inspireid ", identifier, " to pid ", pid
                                 add_external_id_to_author(pid, identifier_type, identifier)
                                 fdict_id_getters[identifier_type]['connection'](pid, identifier)
-                        #if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
-                            #print "Adding inspireid ", identifier, " to pid ", pid
-                            #add_external_id_to_author(pid, identifier_type, identifier)
-                            #fdict_id_getters[identifier_type]['connection'](pid, identifier)
+                        # if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
+                            # print "Adding inspireid ", identifier, " to pid ", pid
+                            # add_external_id_to_author(pid, identifier_type, identifier)
+                            # fdict_id_getters[identifier_type]['connection'](pid, identifier)
 
                     else:
-                        open_rt_ticket()
-                        raise MultipleAuthorsWithSameIdException("More than one authors with the same identifier", data['data_dicts']['id_mapping'][identifier], identifier)
+                        raise MultipleAuthorsWithSameIdException(
+                            "More than one authors with the same identifier",
+                            data['data_dicts']['id_mapping'][identifier],
+                            identifier)
                 else:
-                    open_rt_ticket()
-                    raise MultipleIdsOnSingleAuthorException("More than one identifier on a single author", pid, identifiers, identifier)
-            except Exception as e:
+                    raise MultipleIdsOnSingleAuthorException(
+                        "More than one identifier on a single author",
+                        pid,
+                        identifiers,
+                        identifier)
+
+            except MultipleAuthorsWithSameIdException as e:
+                open_rt_ticket()
                 print 'Something went terribly wrong even here(reliable)! ', e
-                continue
+            except MultipleIdsOnSingleAuthorException as e:
+                open_rt_ticket()
+                print 'Something went terribly wrong even here(reliable)! ', e
 
     print "we are entering the twilight zone"
     reliable = False
