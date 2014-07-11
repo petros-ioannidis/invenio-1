@@ -41,6 +41,7 @@ def clean_up_the_database(inspireID):
 class BibAuthorIDHooverTestCase(TestCase):
 
     run_exec = False
+
     @classmethod
     def setUpClass(cls):
         print 'Init'
@@ -49,9 +50,9 @@ class BibAuthorIDHooverTestCase(TestCase):
         #print dir(cls)
         #if 'run' in dir(cls) and cls.run:
             #return
-        if run_exec:
+        if cls.run_exec:
             print 'I am not defined'
-            pass
+            return
         cls.run_exec = True
         cls.verbose = 0
         cls.logger = setup_loggers()
@@ -424,7 +425,7 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
 
     @classmethod
     def tearDownClass(self):
-        pass 
+        BibAuthorIDHooverTestCase.tearDownClass()
     #@classmethod
     #def tearDownClass(self):
         #BibAuthorIDHooverTestCase.tearDownClass()
@@ -490,8 +491,8 @@ class HepnamesHooverTestCase(BibAuthorIDHooverTestCase):
 
     @classmethod
     def tearDownClass(self):
-        pass 
- 
+        BibAuthorIDHooverTestCase.tearDownClass()
+
     def test_hepnames(self):
         def test_hoover_assign_one_inspire_id_from_hepnames_record():
             inspireID = get_inspire_id_of_author(BibAuthorIDHooverTestCase.pids['author15'])
@@ -500,8 +501,8 @@ class HepnamesHooverTestCase(BibAuthorIDHooverTestCase):
 
 
 
-#TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
-TEST_SUITE = make_test_suite(HepnamesHooverTestCase)
+TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
+#TEST_SUITE = make_test_suite(HepnamesHooverTestCase)
 #TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase)
 
 

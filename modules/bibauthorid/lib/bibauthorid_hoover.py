@@ -27,7 +27,7 @@ def timed(func):
         return res
     return print_time
 
-class ConflictingIds(Exception):
+class ConflictingIdsException(Exception):
 
     "Base class for conflicting ids in authors"
 
@@ -43,19 +43,19 @@ class ConflictingIds(Exception):
         self.pid = pid
         self.identifier_type = identifier_type
 
-class ConflictingIdsFromReliableSource(ConflictingIds):
+class ConflictingIdsFromReliableSourceException(ConflictingIdsException):
 
     "Class for conflicting ids in authors that are caused from reliable sources"
     pass
 
 
-class ConflictingIdsFromUnreliableSource(ConflictingIds):
+class ConflictingIdsFromUnreliableSourceException(ConflictingIdsException):
 
     "Class for conflicting ids in authors that are caused from unreliable sources"
     pass
 
 
-class DuplicatePaper(Exception):
+class DuplicatePaperException(Exception):
 
     "Base class for duplicated papers conflicts"
 
@@ -72,19 +72,19 @@ class DuplicatePaper(Exception):
         self.signature = signature
 
 
-class DuplicateClaimedPaper(DuplicatePaper):
+class DuplicateClaimedPaperException(DuplicatePaperException):
 
     "Class for duplicated papers conflicts when one of them is claimed"
     pass
 
 
-class DuplicateUnclaimedPaper(DuplicatePaper):
+class DuplicateUnclaimedPaperException(DuplicatePaperException):
 
     "Class for duplicated papers conflicts when one of them is unclaimed"
     pass
 
 
-class BrokenHepNamesRecord(Exception):
+class BrokenHepNamesRecordException(Exception):
 
     "Base class for broken HepNames records"
 
@@ -101,7 +101,7 @@ class BrokenHepNamesRecord(Exception):
         self.identifier_type = identifier_type
 
 
-class MultipleHepnamesRecordsWithSameId(Exception):
+class MultipleHepnamesRecordsWithSameIdException(Exception):
 
     "Base class for conflicting HepNames records"
 
@@ -118,7 +118,7 @@ class MultipleHepnamesRecordsWithSameId(Exception):
         self.identifier_type = identifier_type
 
 
-class NoCanonicalName(Exception):
+class NoCanonicalNameException(Exception):
 
     "Base class for no canonical name found for a pid"
 
@@ -197,8 +197,8 @@ def get_inspireID_from_hepnames(pid):
                 try:
                     return d['a']
                 except KeyError:
-                    raise BrokenHepNamesRecord("Broken HepNames record", recid, 'INSPIREID')
-    except TypeError:
+                    raise BrokenHepNamesRecordException("Broken HepNames record", recid, 'INSPIREID')
+    except IndexError:
         return None
     except KeyError:
         return None
@@ -217,7 +217,7 @@ def connect_hepnames_to_inspireID(pid, inspireID):
     recid = perform_request_search(p="035:" + inspireID, cc="HepNames")
     if recid:
         if len(recid) > 1:
-            raise MultipleHepnamesRecordsWithSameId(
+            raise MultipleHepnamesRecordsWithSameIdException(
                 "More than one hepnames record found with the same inspire id",
                 recid,
                 'INSPIREID')
@@ -230,15 +230,15 @@ class vacuumer(object):
     def __init__(self, pid):
         self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
         self.unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
-        self.claimed_paper_records = set(rec[2] for rec in claimed_paper_signatures)
-        self.unclaimed_paper_records = set(rec[2] for rec in unclaimed_paper_signatures)
+        self.claimed_paper_records = set(rec[2] for rec in self.claimed_paper_signatures)
+        self.unclaimed_paper_records = set(rec[2] for rec in self.unclaimed_paper_signatures)
         self.pid = pid
     #different signature same paper for an author
 
     def vacuum_signatures(self, signature):
         if signature not in self.unclaimed_paper_signatures and signature not in self.claimed_paper_signatures:
             if signature[2] in self.claimed_paper_records:
-                raise DuplicateClaimedPaper("Vacuum a duplicated claimed paper", self.pid, signature)
+                raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
             if signature[2] in self.unclaimed_paper_records:
                 print "Conflict in pid ",self.pid ," with signature ", signature
                 new_pid = get_free_author_id()
@@ -246,7 +246,7 @@ class vacuumer(object):
                 move_signature(signature, new_pid)
                 #should or shouldn't
                 #check after
-                raise DuplicateUnclaimedPaper("Vacuum a duplicated claimed paper", new_pid, signature)
+                raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
             print "Hoovering ",signature ," to pid ", self.pid
             move_signature(signature, self.pid)
         
@@ -346,7 +346,7 @@ def get_inspireID_from_claimed_papers(pid, intersection_set=None):
     except IndexError:
         return None
     else:
-        raise ConflictingIdsFromReliableSource('Claimed Papers', pid, 'INSPIREID')
+        raise ConflictingIdsFromReliableSourceException('Claimed Papers', pid, 'INSPIREID')
 
 
 def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
@@ -379,7 +379,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     except IndexError:
         return None
     else:
-        raise ConflictingIdsFromUnreliableSource('Unclaimed Papers', pid, 'INSPIREID')
+        raise ConflictingIdsFromUnreliableSourceException('Unclaimed Papers', pid, 'INSPIREID')
 
 @timed
 def hoover(authors=None):
@@ -389,7 +389,7 @@ def hoover(authors=None):
     recs += get_records_with_tag('100__j')
     recs += get_records_with_tag('700__i')
     recs += get_records_with_tag('700__j')
-    recs = set(recs) & run_sql("select DISTINCT(bibrec) from aidPERSONIDPAPERS")
+    recs = set(recs) & set(run_sql("select DISTINCT(bibrec) from aidPERSONIDPAPERS"))
 
     records_with_id = set(rec[0] for rec in recs)
     # records_with_id = [rec[0] for rec in set(recs)]
@@ -474,14 +474,18 @@ def hoover(authors=None):
                         for sig in signatures:
                             try:
                                 rowenta.vacuum_signatures(sig)
-                            except DuplicateClaimedPaper:
+                            except DuplicateClaimedPaperException:
                                 pass
-                            except DuplicateUnclaimedPaper:
+                            except DuplicateUnclaimedPaperException:
                                 pass
-                        if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
-                            print "Adding inspireid ", identifier, " to pid ", pid
-                            add_external_id_to_author(pid, identifier_type, identifier)
-                            fdict_id_getters[identifier_type]['connection'](pid, identifier)
+                            finally:
+                                print "Adding inspireid ", identifier, " to pid ", pid
+                                add_external_id_to_author(pid, identifier_type, identifier)
+                                fdict_id_getters[identifier_type]['connection'](pid, identifier)
+                        #if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
+                            #print "Adding inspireid ", identifier, " to pid ", pid
+                            #add_external_id_to_author(pid, identifier_type, identifier)
+                            #fdict_id_getters[identifier_type]['connection'](pid, identifier)
 
                     else:
                         raise Exception("More than one authors with the same identifier")
