@@ -317,7 +317,7 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
     for sig in signatures_to_vacuum:
         if sig[2] in claimed_paper_records:
             # outside of for
-            expt = DuplicateClaimedPaper("Vacuum a duplicated claimed paper", pid)
+            expt = DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", pid)
 
         if sig[2] in unclaimed_paper_records:
             logger.log("Conflict in pid ", pid, " with signature ", sig)
@@ -507,9 +507,9 @@ def hoover(authors=None):
             # try:
             try:
                 res = next((func for func in G if func), None)
-            except ConflictingIdsFromReliableSourceException:
+            except ConflictingIdsFromReliableSourceException as e:
                 open_rt_ticket(e)
-            except BrokenHepNamesRecordException:
+            except BrokenHepNamesRecordException as e:
                 open_rt_ticket(e)
             logger.log("found reliable id", res)
             # except Exception, e:
