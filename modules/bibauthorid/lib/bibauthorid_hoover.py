@@ -135,6 +135,39 @@ class MultipleHepnamesRecordsWithSameIdException(Exception):
         self.recids = tuple(recids)
         self.identifier_type = identifier_type
 
+class MultipleAuthorsWithSameIdException(Exception):
+
+    "Base class for multiple authors with the same id"
+
+    def __init__(self, message, pids, identifier_type):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        pids -- an iterable with the pids that have the same id
+        identifier -- the type of the identifier that caused the exception
+        """
+        Exception.__init__(self, message)
+        self.pids = tuple(pids)
+        self.identifier_type = identifier_type
+
+class MultipleIdsOnSingleAuthorException(Exception):
+
+    "Base class for multiple ids on a single author"
+
+    def __init__(self, message, pid, ids, identifier_type):
+        """Set up the exception class
+
+        arguments:
+        message -- the message to be displayed when the exceptions is raised
+        pid -- the pid of the author
+        ids -- an iterable with the identifiers of the author
+        identifier -- the type of the identifier that caused the exception
+        """
+        Exception.__init__(self, message)
+        self.pid = pid
+        self.ids = tuple(ids)
+        self.identifier_type = identifier_type
 
 class NoCanonicalNameException(Exception):
 
@@ -469,9 +502,9 @@ def hoover(authors=None):
             try:
                 res = next((func for func in G if func), None)
             except ConflictingIdsFromReliableSourceException:
-                pass
+                open_rt_ticket()
             except BrokenHepNamesRecordException:
-                pass
+                open_rt_ticket()
             print "found reliable id", res
             # except Exception, e:
                 # print 'Something went terribly wrong! ', str(e)
@@ -498,7 +531,7 @@ def hoover(authors=None):
                             try:
                                 rowenta.vacuum_signatures(sig)
                             except DuplicateClaimedPaperException:
-                                pass
+                                open_rt_ticket()
                             except DuplicateUnclaimedPaperException as e:
                                 unclaimed_authors[identifier_type].add(e.pid)
                             finally:
@@ -511,17 +544,19 @@ def hoover(authors=None):
                             #fdict_id_getters[identifier_type]['connection'](pid, identifier)
 
                     else:
-                        raise Exception("More than one authors with the same identifier")
+                        open_rt_ticket()
+                        raise MultipleAuthorsWithSameIdException("More than one authors with the same identifier", data['data_dicts']['id_mapping'][identifier], identifier)
                 else:
-                    raise Exception("More than one identifier")
+                    open_rt_ticket()
+                    raise MultipleIdsOnSingleAuthorException("More than one identifier on a single author", pid, identifiers, identifier)
             except Exception as e:
                 print 'Something went terribly wrong even here(reliable)! ', e
                 continue
 
     print "we are entering the twilight zone"
     reliable = False
-    for identifier_type, functions in fdict_id_getters.iteritems():
-        for index, pid in enumerate(unclaimed_authors[identifier_type]):
+    for index, pid in enumerate(unclaimed_authors[identifier_type]):
+        for identifier_type, functions in fdict_id_getters.iteritems():
 
             print "\npid ", pid
             G = (func(pid) for func in functions['unreliable'])
@@ -529,9 +564,9 @@ def hoover(authors=None):
                 res = next((func for func in G if func), None)
                 print "found unreliable id", res
             except ConflictingIdsFromUnreliableSourceException:
-                pass
+                open_rt_ticket()
             except BrokenHepNamesRecordException:
-                pass
+                open_rt_ticket()
 
             if not res:
                 continue
@@ -541,16 +576,19 @@ def hoover(authors=None):
                 print "Id", res, " already there"
                 print "skipping author", pid
                 continue
+            rowenta = vacuumer(pid)
             signatures = functions['signatures_getter'](res)
-            try:
-                if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=reliable):
-                    print "Adding inspireid ", res, " to pid ", pid
-                    add_external_id_to_author(pid, identifier_type, res)
+            for sig in signatures:
+                try:
+                    rowenta.vacuum_signatures(sig)
+                except DuplicateClaimedPaperException:
+                    open_rt_ticket()
+                except DuplicateUnclaimedPaperException as e:
+                    raise
+                finally:
+                    print "Adding inspireid ", identifier, " to pid ", pid
+                    add_external_id_to_author(pid, identifier_type, identifier)
                     fdict_id_getters[identifier_type]['connection'](pid, identifier)
-
-            except Exception as e:
-                print 'Something went terribly wrong even here(unreliable)! ', e
-                continue
 
 if __name__ == "__main__":
     print "Initializing hoover"

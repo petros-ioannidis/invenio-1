@@ -128,7 +128,6 @@ else:
 
 WEDGE_THRESHOLD = 0.70
 
-
 # Rabbit use or ignore external ids
 RABBIT_USE_EXTERNAL_IDS = True
 
@@ -200,6 +199,9 @@ if GLOBAL_CONFIG and CFG_INSPIRE_SITE:
 # Shall we send from local:ly defined eMail address or from the users one
 # when we send out a ticket? Default is True -> send with user's email
 TICKET_SENDING_FROM_USER_EMAIL = True
+
+#should hoover open tickets in the system
+HOOVER_OPEN_RT_TICKETS = False
 
 # Regexp for the names separation
 NAMES_SEPARATOR_CHARACTER_LIST = ",;.=\-\(\)"
