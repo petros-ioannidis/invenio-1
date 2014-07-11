@@ -448,7 +448,12 @@ def hoover(authors=None):
             print "\npid ", pid
             G = (func(pid) for func in functions['reliable'])
             # try:
-            res = next((func for func in G if func), None)
+            try:
+                res = next((func for func in G if func), None)
+            except ConflictingIdsFromReliableSourceException:
+                pass
+            except BrokenHepNamesRecordException:
+                pass
             print "found reliable id", res
             # except Exception, e:
                 # print 'Something went terribly wrong! ', str(e)
@@ -476,8 +481,8 @@ def hoover(authors=None):
                                 rowenta.vacuum_signatures(sig)
                             except DuplicateClaimedPaperException:
                                 pass
-                            except DuplicateUnclaimedPaperException:
-                                pass
+                            except DuplicateUnclaimedPaperException as e:
+                                unclaimed_authors[identifier_type].add(e.pid)
                             finally:
                                 print "Adding inspireid ", identifier, " to pid ", pid
                                 add_external_id_to_author(pid, identifier_type, identifier)
@@ -505,9 +510,10 @@ def hoover(authors=None):
             try:
                 res = next((func for func in G if func), None)
                 print "found unreliable id", res
-            except Exception as e:
-                print 'Something went terribly wrong(unreliable)! ', str(e)
-                continue
+            except ConflictingIdsFromUnreliableSourceException:
+                pass
+            except BrokenHepNamesRecordException:
+                pass
 
             if not res:
                 continue
