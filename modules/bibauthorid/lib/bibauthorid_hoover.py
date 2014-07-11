@@ -2,6 +2,9 @@ import sys
 from time import time
 from invenio.search_engine import get_record, \
     perform_request_search
+
+from invenio.bibauthorid_logutils import Logger
+
 from invenio.dbquery import run_sql
 from invenio.bibauthorid_dbinterface import get_existing_authors, \
     get_canonical_name_of_author, get_papers_of_author, get_all_paper_data_of_author, \
@@ -12,12 +15,27 @@ from invenio.bibauthorid_dbinterface import get_existing_authors, \
     get_orcid_id_of_author, destroy_partial_marc_caches
 from invenio.bibauthorid_general_utils import memoized
 import invenio.bibauthorid_dbinterface as db
+import invenio.bibauthorid_config as bconfig
 from invenio.bibauthorid_webapi import get_hepnames, add_cname_to_hepname_record
+from invenio.bibcatalog import BIBCATALOG_SYSTEM
+
+#TODO: LOGGER!!!!
 
 try:
     from collections import defaultdict
 except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
+
+def open_rt_ticket():
+
+    subject = ""
+    text = ""
+    queue = ""
+    if bconfig.HOOVER_OPEN_RT_TICKETS:
+        BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=text,
+                      queue=queue, priority="", owner="", requestor="")
+    else:
+        print "blablabla"
 
 def timed(func):
     def print_time(*args, **kwds):
@@ -249,7 +267,7 @@ class vacuumer(object):
                 raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
             print "Hoovering ",signature ," to pid ", self.pid
             move_signature(signature, self.pid)
-        
+
 
 def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=False):
     claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
