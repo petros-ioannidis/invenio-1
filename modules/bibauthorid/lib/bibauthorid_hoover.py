@@ -27,8 +27,11 @@ except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
 
 
-def open_rt_ticket():
+def open_rt_ticket(e):
 
+    msg = "Exception " + e.__repr__() + " was raised with arguments:\n"
+    for key, value in vars(e).iteritems():
+        msg += str(key) + " " + str(value) + "\n"
     subject = ""
     text = ""
     queue = ""
@@ -36,7 +39,7 @@ def open_rt_ticket():
         BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=text,
                                         queue=queue, priority="", owner="", requestor="")
     else:
-        print "blablabla"
+        print msg
 
 
 def timed(func):
@@ -49,7 +52,6 @@ def timed(func):
 
 
 class ConflictingIdsException(Exception):
-
     """Base class for conflicting ids in authors"""
 
     def __init__(self, message, pid, identifier_type):
@@ -66,19 +68,16 @@ class ConflictingIdsException(Exception):
 
 
 class ConflictingIdsFromReliableSourceException(ConflictingIdsException):
-
     """Class for conflicting ids in authors that are caused from reliable sources"""
     pass
 
 
 class ConflictingIdsFromUnreliableSourceException(ConflictingIdsException):
-
     """Class for conflicting ids in authors that are caused from unreliable sources"""
     pass
 
 
 class DuplicatePaperException(Exception):
-
     """Base class for duplicated papers conflicts"""
 
     def __init__(self, message, pid, signature):
@@ -95,19 +94,16 @@ class DuplicatePaperException(Exception):
 
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
-
     """Class for duplicated papers conflicts when one of them is claimed"""
     pass
 
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
-
     """Class for duplicated papers conflicts when one of them is unclaimed"""
     pass
 
 
 class BrokenHepNamesRecordException(Exception):
-
     """Base class for broken HepNames records"""
 
     def __init__(self, message, recid, identifier_type):
@@ -124,7 +120,6 @@ class BrokenHepNamesRecordException(Exception):
 
 
 class MultipleHepnamesRecordsWithSameIdException(Exception):
-
     """Base class for conflicting HepNames records"""
 
     def __init__(self, message, recids, identifier_type):
@@ -141,7 +136,6 @@ class MultipleHepnamesRecordsWithSameIdException(Exception):
 
 
 class MultipleAuthorsWithSameIdException(Exception):
-
     """Base class for multiple authors with the same id"""
 
     def __init__(self, message, pids, identifier_type):
@@ -158,7 +152,6 @@ class MultipleAuthorsWithSameIdException(Exception):
 
 
 class MultipleIdsOnSingleAuthorException(Exception):
-
     """Base class for multiple ids on a single author"""
 
     def __init__(self, message, pid, ids, identifier_type):
@@ -177,7 +170,6 @@ class MultipleIdsOnSingleAuthorException(Exception):
 
 
 class NoCanonicalNameException(Exception):
-
     """Base class for no canonical name found for a pid"""
 
     def __init__(self, message, pid):
@@ -244,6 +236,7 @@ def get_signatures_with_orcid_cache(orcid):
 def get_inspireID_from_hepnames(pid):
     """return inspireID of a pid by searching the hepnames
 
+    arguments:
     pid -- the pid of the author to search in the hepnames dataset
     """
     author_canonical_name = get_canonical_name_of_author(pid)
@@ -266,6 +259,7 @@ def get_inspireID_from_hepnames(pid):
 def connect_hepnames_to_inspireID(pid, inspireID):
     """Connect the hepnames record with the record of the inspireID
 
+    arguments:
     pid -- the pid of the author that has the inspireID
     inspireID -- the inspireID of the author
     """
@@ -357,6 +351,7 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
 def get_signatures_with_inspireID(inspireID):
     """get and vacuum of the signatures that belong to this inspireID
 
+    arguments:
     inspireID -- the string containing the inspireID
     """
     print "I was called with inspireID", inspireID
@@ -366,6 +361,7 @@ def get_signatures_with_inspireID(inspireID):
 def get_records_with_tag(tag):
     """return all the records with a specific tag
 
+    arguments:
     tag -- the tag to search for
     """
     assert tag in ['100__i', '100__j', '700__i', '700__j']
@@ -511,10 +507,10 @@ def hoover(authors=None):
             # try:
             try:
                 res = next((func for func in G if func), None)
-            except ConflictingIdsFromReliableSourceException:
-                open_rt_ticket()
-            except BrokenHepNamesRecordException:
-                open_rt_ticket()
+            except ConflictingIdsFromReliableSourceException as e:
+                open_rt_ticket(e)
+            except BrokenHepNamesRecordException as e:
+                open_rt_ticket(e)
             print "found reliable id", res
             # except Exception, e:
                 # print 'Something went terribly wrong! ', str(e)
@@ -540,8 +536,8 @@ def hoover(authors=None):
                         for sig in signatures:
                             try:
                                 rowenta.vacuum_signatures(sig)
-                            except DuplicateClaimedPaperException:
-                                open_rt_ticket()
+                            except DuplicateClaimedPaperException as e:
+                                open_rt_ticket(e)
                             except DuplicateUnclaimedPaperException as e:
                                 unclaimed_authors[identifier_type].add(e.pid)
                             finally:
@@ -566,10 +562,10 @@ def hoover(authors=None):
                         identifier)
 
             except MultipleAuthorsWithSameIdException as e:
-                open_rt_ticket()
+                open_rt_ticket(e)
                 print 'Something went terribly wrong even here(reliable)! ', e
             except MultipleIdsOnSingleAuthorException as e:
-                open_rt_ticket()
+                open_rt_ticket(e)
                 print 'Something went terribly wrong even here(reliable)! ', e
 
     print "we are entering the twilight zone"
@@ -582,10 +578,10 @@ def hoover(authors=None):
             try:
                 res = next((func for func in G if func), None)
                 print "found unreliable id", res
-            except ConflictingIdsFromUnreliableSourceException:
-                open_rt_ticket()
-            except BrokenHepNamesRecordException:
-                open_rt_ticket()
+            except ConflictingIdsFromUnreliableSourceException as e:
+                open_rt_ticket(e)
+            except BrokenHepNamesRecordException as e:
+                open_rt_ticket(e)
 
             if not res:
                 continue
@@ -600,10 +596,10 @@ def hoover(authors=None):
             for sig in signatures:
                 try:
                     rowenta.vacuum_signatures(sig)
-                except DuplicateClaimedPaperException:
-                    open_rt_ticket()
+                except DuplicateClaimedPaperException as e:
+                    open_rt_ticket(e)
                 except DuplicateUnclaimedPaperException as e:
-                    raise
+                    pass
                 finally:
                     print "Adding inspireid ", identifier, " to pid ", pid
                     add_external_id_to_author(pid, identifier_type, identifier)
