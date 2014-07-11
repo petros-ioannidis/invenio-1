@@ -19,6 +19,13 @@ try:
 except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
 
+def timed(func):
+    def print_time(*args, **kwds):
+        t0 = time()
+        res = func(*args, **kwds)
+        print func.__name__, ': with args: ', args, kwds, ' took: ', time()-t0
+        return res
+    return print_time
 
 class ConflictingIds(Exception):
 
@@ -36,7 +43,6 @@ class ConflictingIds(Exception):
         self.pid = pid
         self.identifier_type = identifier_type
 
-
 class ConflictingIdsFromReliableSource(ConflictingIds):
 
     "Class for conflicting ids in authors that are caused from reliable sources"
@@ -53,16 +59,17 @@ class DuplicatePaper(Exception):
 
     "Base class for duplicated papers conflicts"
 
-    def __init__(self, message, pid):
+    def __init__(self, message, pid, signature):
         """Set up the exception class
 
         arguments:
         message -- the message to be displayed when the exceptions is raised
         pid -- the pid of the author that caused the exception
-        identifier -- the type of the identifier that caused the exception
+        signature -- the signature that raise the exception
         """
         Exception.__init__(self, message)
         self.pid = pid
+        self.signature = signature
 
 
 class DuplicateClaimedPaper(DuplicatePaper):
@@ -124,16 +131,6 @@ class NoCanonicalName(Exception):
         """
         Exception.__init__(self, message)
         self.pid = pid
-
-
-def timed(func):
-    def print_time(*args, **kwargs):
-        t0 = time()
-        res = func(*args, **kwargs)
-        print func.__name__, ': with args: ', args, kwargs, ' took: ', time() - t0
-        return res
-    return print_time
-
 
 def get_signatures_with_inspireID_sql(inspireID):
     """Signatures of specific inspireID using an Sql query"""
@@ -229,6 +226,31 @@ def connect_hepnames_to_inspireID(pid, inspireID):
         add_cname_to_hepname_record(author_canonical_name, recid)
 
 
+class vacuumer(object):
+    def __init__(self, pid):
+        self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
+        self.unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
+        self.claimed_paper_records = set(rec[2] for rec in claimed_paper_signatures)
+        self.unclaimed_paper_records = set(rec[2] for rec in unclaimed_paper_signatures)
+        self.pid = pid
+    #different signature same paper for an author
+
+    def vacuum_signatures(self, signature):
+        if signature not in self.unclaimed_paper_signatures and signature not in self.claimed_paper_signatures:
+            if signature[2] in self.claimed_paper_records:
+                raise DuplicateClaimedPaper("Vacuum a duplicated claimed paper", self.pid, signature)
+            if signature[2] in self.unclaimed_paper_records:
+                print "Conflict in pid ",self.pid ," with signature ", signature
+                new_pid = get_free_author_id()
+                print "Moving  conflicting signature ",signature ," from pid ", self.pid, " to pid ", new_pid
+                move_signature(signature, new_pid)
+                #should or shouldn't
+                #check after
+                raise DuplicateUnclaimedPaper("Vacuum a duplicated claimed paper", new_pid, signature)
+            print "Hoovering ",signature ," to pid ", self.pid
+            move_signature(signature, self.pid)
+        
+
 def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=False):
     claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
     unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
@@ -257,7 +279,7 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
     if expt:
         raise expt
     if check_if_all_signatures_where_vacuumed:
-        paper_signatures = set([sig[1:4] for sig in get_papers_of_author(pid)])
+        paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid))
         print "Paper_signatures", paper_signatures
         total_signatures = set(signatures)
         print "total_signatures", total_signatures
@@ -265,6 +287,7 @@ def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=Fa
         print "Second total_signatures", total_signatures
         if paper_signatures == total_signatures:
             return True
+        #exception instead of false
         return False
     else:
         # we assume all signatures were vacuumed correctly and skip an expensive test.
@@ -358,7 +381,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     else:
         raise ConflictingIdsFromUnreliableSource('Unclaimed Papers', pid, 'INSPIREID')
 
-
+@timed
 def hoover(authors=None):
     """Long description"""
 
@@ -411,7 +434,6 @@ def hoover(authors=None):
                 'id_mapping': defaultdict(set)
             }
         }
-
     }
 
     # change the names
@@ -422,7 +444,6 @@ def hoover(authors=None):
     unclaimed_authors = defaultdict(set)
     reliable = True
     for index, pid in enumerate(authors):
-
         for identifier_type, functions in fdict_id_getters.iteritems():
             print "\npid ", pid
             G = (func(pid) for func in functions['reliable'])
@@ -447,9 +468,17 @@ def hoover(authors=None):
                     identifier = list(identifiers)[0]
                     print "identifier", identifier
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
+                        rowenta = vacuumer(pid)
                         signatures = data['signatures_getter'](identifier)
                         print "signatures", signatures
-                        if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=reliable):
+                        for sig in signatures:
+                            try:
+                                rowenta.vacuum_signatures(sig)
+                            except DuplicateClaimedPaper:
+                                pass
+                            except DuplicateUnclaimedPaper:
+                                pass
+                        if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
                             print "Adding inspireid ", identifier, " to pid ", pid
                             add_external_id_to_author(pid, identifier_type, identifier)
                             fdict_id_getters[identifier_type]['connection'](pid, identifier)
@@ -497,5 +526,5 @@ def hoover(authors=None):
 
 if __name__ == "__main__":
     print "Initializing hoover"
-    timed(hoover)()
+    hoover()
     print "Terminating hoover"
