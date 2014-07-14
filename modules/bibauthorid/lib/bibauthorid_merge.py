@@ -420,18 +420,6 @@ def get_unmatched_clusters(best_match_matrix, results):
     ''' 
     return frozenset(xrange(len(results))) - frozenset(
         imap(itemgetter(0), [x for x in best_match_matrix if x[2] > 0]))
-        
-        
-def get_untouched_personids(surname, pids_in_aidresults):
-    '''
-        For a given surname, returns the personids that are not included in
-        aidRESULTS (the results of the latest disambiguation).
-    '''
-    pids_in_aidpersonidpapers = get_authors_by_surname(surname,
-                                                       limit_to_recid=True)
-    pids_in_aidpersonidpapers = set(p[0] for p in pids_in_aidpersonidpapers)
-                                                       
-    return pids_in_aidpersonidpapers - set(pids_in_aidresults)
 
 
 def matched_claims(inspect=None):
