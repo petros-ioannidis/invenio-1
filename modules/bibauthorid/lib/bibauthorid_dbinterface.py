@@ -4661,7 +4661,6 @@ def get_authors_by_surname(surname, limit_to_recid=False):  # find_pids_by_name
         select_query = "select personid, name "
     else:
         select_query = "select personid "
-
     return set(run_sql(select_query +
                        """from aidPERSONIDPAPERS
                           where name like %s""",
