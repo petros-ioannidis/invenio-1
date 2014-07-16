@@ -227,6 +227,7 @@ class BibAuthorIDHooverTestCase(TestCase):
             temp = set()
             cls.bibrefs[key] = get_bibref_value_for_name(cls.authors[key]['name'])
             temp = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (cls.bibrefs[key], cls.bibrecs[key.replace('author','paper')], cls.authors[key]['name']))
+            print temp
             cls.pids[key] = temp[0][0] if temp else ()
         print cls.bibrefs
         print cls.pids
@@ -425,7 +426,7 @@ class ManyAuthorsHooverTestCase(BibAuthorIDHooverTestCase):
 
     @classmethod
     def tearDownClass(self):
-        BibAuthorIDHooverTestCase.tearDownClass()
+        pass
     #@classmethod
     #def tearDownClass(self):
         #BibAuthorIDHooverTestCase.tearDownClass()
