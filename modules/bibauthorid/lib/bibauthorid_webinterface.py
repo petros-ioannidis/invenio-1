@@ -2767,6 +2767,8 @@ class WebInterfaceBibAuthorIDManageProfilePages(WebInterfaceDirectory):
             template_parameters["arxiv"] = html_arxiv
             template_parameters["orcid"] = html_orcid
             template_parameters["contact"] = html_support
+            
+        template_parameters["inspire"] = CFG_INSPIRE_SITE
 
         template_parameters["inspire"] = CFG_INSPIRE_SITE
 
