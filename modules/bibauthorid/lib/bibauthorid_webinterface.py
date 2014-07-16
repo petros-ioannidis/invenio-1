@@ -2770,8 +2770,6 @@ class WebInterfaceBibAuthorIDManageProfilePages(WebInterfaceDirectory):
 
         template_parameters["inspire"] = CFG_INSPIRE_SITE
 
-        template_parameters["inspire"] = CFG_INSPIRE_SITE
-
         body = profile_page.get_wrapped_body("manage_profile", template_parameters)
         # body = profile_page.get_wrapped_body("generic", {'html': content})
 
