@@ -279,7 +279,7 @@ def connect_hepnames_to_inspireID(pid, inspireID):
         add_cname_to_hepname_record(author_canonical_name, recid)
 
 
-class vacuumer(object):
+class Vacuumer(object):
 
     def __init__(self, pid):
         self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
@@ -422,16 +422,16 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
         unclaimed_papers = filter(lambda x: x[3] in intersection_set, unclaimed_papers)
     unclaimed_paper_signatures = (x[1:4] for x in unclaimed_papers)
 
-    inspireIDs_list = []
+    inspireID_list = []
     for sig in unclaimed_paper_signatures:
         inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
             assert(len(inspireID) == 1)
-            inspireIDs_list.append(inspireID[0])
+            inspireID_list.append(inspireID[0])
 
     try:
-        if inspireIDs_list[1:] == inspireIDs_list[:-1]:
-            return inspireIDs_list[0]
+        if inspireID_list[1:] == inspireID_list[:-1]:
+            return inspireID_list[0]
     except IndexError:
         return None
     else:
@@ -498,6 +498,7 @@ def hoover(authors=None):
         authors = get_existing_authors()
     logger.log("running on ", len(authors), " !")
 
+    logger.log("authors", authors)
     unclaimed_authors = defaultdict(set)
     reliable = True
     for index, pid in enumerate(authors):
@@ -509,14 +510,14 @@ def hoover(authors=None):
                 res = next((func for func in G if func), None)
             except ConflictingIdsFromReliableSourceException as e:
                 open_rt_ticket(e)
+                continue
             except BrokenHepNamesRecordException as e:
                 open_rt_ticket(e)
-            logger.log("found reliable id", res)
-            # except Exception, e:
-                # logger.log('Something went terribly wrong! ', str(e))
-                # continue
+                continue
 
+            print "unclaimed authors",unclaimed_authors[identifier_type].add(pid)
             if res:
+                logger.log("found reliable id", res)
                 fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
                 fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
             else:
@@ -530,7 +531,7 @@ def hoover(authors=None):
                     identifier = list(identifiers)[0]
                     logger.log("identifier", identifier)
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
-                        rowenta = vacuumer(pid)
+                        rowenta = Vacuumer(pid)
                         signatures = data['signatures_getter'](identifier)
                         logger.log("signatures", signatures)
                         for sig in signatures:
@@ -544,17 +545,14 @@ def hoover(authors=None):
                                 logger.log("Adding inspireid ", identifier, " to pid ", pid)
                                 add_external_id_to_author(pid, identifier_type, identifier)
                                 fdict_id_getters[identifier_type]['connection'](pid, identifier)
-                        # if vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed = reliable):
-                            # logger.log("Adding inspireid ", identifier, " to pid ", pid)
-                            # add_external_id_to_author(pid, identifier_type, identifier)
-                            # fdict_id_getters[identifier_type]['connection'](pid, identifier)
-
                     else:
+                        print "auth",data['data_dicts']['id_mapping'][identifier]
                         raise MultipleAuthorsWithSameIdException(
                             "More than one authors with the same identifier",
                             data['data_dicts']['id_mapping'][identifier],
                             identifier)
                 else:
+                    print "ident",identifiers
                     raise MultipleIdsOnSingleAuthorException(
                         "More than one identifier on a single author",
                         pid,
@@ -563,12 +561,9 @@ def hoover(authors=None):
 
             except MultipleAuthorsWithSameIdException as e:
                 open_rt_ticket(e)
-                logger.log('Something went terribly wrong even here(reliable)! ', e)
             except MultipleIdsOnSingleAuthorException as e:
                 open_rt_ticket(e)
-                logger.log('Something went terribly wrong even here(reliable)! ', e)
 
-    logger.log("we are entering the twilight zone")
     reliable = False
     for index, pid in enumerate(unclaimed_authors[identifier_type]):
         for identifier_type, functions in fdict_id_getters.iteritems():
@@ -577,21 +572,19 @@ def hoover(authors=None):
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
-                logger.log("found unreliable id", res)
             except ConflictingIdsFromUnreliableSourceException:
                 open_rt_ticket(e)
+                continue
             except BrokenHepNamesRecordException:
                 open_rt_ticket(e)
-
-            if not res:
                 continue
 
-            assert res, 'res here should never be None'
+            logger.log("found unreliable id", res)
             if res in fdict_id_getters[identifier_type]['data_dicts']['id_mapping']:
                 logger.log("Id", res, " already there")
                 logger.log("skipping author", pid)
                 continue
-            rowenta = vacuumer(pid)
+            rowenta = Vacuumer(pid)
             signatures = functions['signatures_getter'](res)
             for sig in signatures:
                 try:
@@ -601,9 +594,9 @@ def hoover(authors=None):
                 except DuplicateUnclaimedPaperException as e:
                     pass
                 finally:
-                    logger.log("Adding inspireid ", identifier, " to pid ", pid)
-                    add_external_id_to_author(pid, identifier_type, identifier)
-                    fdict_id_getters[identifier_type]['connection'](pid, identifier)
+                    logger.log("Adding inspireid ", res, " to pid ", pid)
+                    add_external_id_to_author(pid, identifier_type, res)
+                    fdict_id_getters[identifier_type]['connection'](pid, res)
 
 if __name__ == "__main__":
     logger.log("Initializing hoover")
