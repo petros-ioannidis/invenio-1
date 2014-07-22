@@ -105,11 +105,17 @@ class BibAuthorIDHooverTestCase(TestCase):
                                         'name': 'authorooooa authoroooob',
                                         'inspireID': 'INSPIRE-FAKE_ID15'},
                          'author16': {
-                                        'name': 'authorooooa authoroooob',
+                                        'name': 'authorppppa authorppppb',
                                         'inspireID': 'INSPIRE-FAKE_ID16'},
                          'author17': {
-                                        'name': 'authorooooa authoroooob',
-                                        'inspireID': 'INSPIRE-FAKE_ID17'}
+                                        'name': 'authorqqqqa authorqqqqb',
+                                        'inspireID': 'INSPIRE-FAKE_ID17'},
+                         'author18': {
+                                        'name': 'authorrrrra authorrrrrb',
+                                        'inspireID': 'INSPIRE-FAKE_ID18'},
+                         'author19': {
+                                        'name': 'authorssssa authorssssb',
+                                        'inspireID': 'INSPIRE-FAKE_ID19'}
                        }
         cls.marc_xmls = dict()
         cls.bibrecs = dict()
@@ -214,18 +220,18 @@ class BibAuthorIDHooverTestCase(TestCase):
             cls.marc_xmls['paper15'] = add_001_field(cls.marc_xmls['paper15'], cls.bibrecs['paper15'])
 
         def set_up_duplicated_unclaimed_signature():
-            cls.marc_xmls['paper16'] = get_new_marc_for_test(cls.authors['author16']['name'], (cls.authors['author16']['name'],), \
-                                                             ((cls.authors['author16']['inspireID'], 'i'),None))
+            cls.marc_xmls['paper16'] = get_new_marc_for_test(cls.authors['author16']['name'], (cls.authors['author17']['name'],), \
+                                                             ((cls.authors['author16']['inspireID'], 'i'),(cls.authors['author16']['inspireID'], 'i')))
 
             cls.bibrecs['paper16'] = get_bibrec_for_record(cls.marc_xmls['paper16'], opt_mode='insert')
             cls.marc_xmls['paper16'] = add_001_field(cls.marc_xmls['paper16'], cls.bibrecs['paper16'])
 
         def set_up_duplicated_claimed_signature():
-            cls.marc_xmls['paper17'] = get_new_marc_for_test(cls.authors['author17']['name'], (cls.authors['author17']['name'],), \
-                                                             ((cls.authors['author17']['inspireID'], 'i'),None))
+            cls.marc_xmls['paper18'] = get_new_marc_for_test(cls.authors['author18']['name'], (cls.authors['author19']['name'],), \
+                                                             ((cls.authors['author18']['inspireID'], 'i'),(cls.authors['author18']['inspireID'], 'i')))
 
-            cls.bibrecs['paper17'] = get_bibrec_for_record(cls.marc_xmls['paper17'], opt_mode='insert')
-            cls.marc_xmls['paper17'] = add_001_field(cls.marc_xmls['paper17'], cls.bibrecs['paper17'])
+            cls.bibrecs['paper18'] = get_bibrec_for_record(cls.marc_xmls['paper18'], opt_mode='insert')
+            cls.marc_xmls['paper18'] = add_001_field(cls.marc_xmls['paper18'], cls.bibrecs['paper18'])
 
         set_up_test_hoover_inertia()
         set_up_test_hoover_duplication()
@@ -245,11 +251,14 @@ class BibAuthorIDHooverTestCase(TestCase):
         print cls.bibrecs
 
         for key in cls.authors:
-            temp = set()
-            cls.bibrefs[key] = get_bibref_value_for_name(cls.authors[key]['name'])
-            temp = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (cls.bibrefs[key], cls.bibrecs[key.replace('author','paper')], cls.authors[key]['name']))
-            print temp
-            cls.pids[key] = temp[0][0] if temp else ()
+            try:
+                temp = set()
+                cls.bibrefs[key] = get_bibref_value_for_name(cls.authors[key]['name'])
+                temp = run_sql("select personid from aidPERSONIDPAPERS where bibref_value=%s and bibrec=%s and name=%s", (cls.bibrefs[key], cls.bibrecs[key.replace('author','paper')], cls.authors[key]['name']))
+                print temp
+                cls.pids[key] = temp[0][0] if temp else ()
+            except KeyError as e:
+                print e
         print cls.bibrefs
         print cls.pids
 
@@ -260,7 +269,7 @@ class BibAuthorIDHooverTestCase(TestCase):
         claim_test_paper(cls.bibrecs['paper11'])
         claim_test_paper(cls.bibrecs['paper13'])
         claim_test_paper(cls.bibrecs['paper14'])
-        claim_test_paper(cls.bibrecs['paper17'])
+        claim_test_paper(cls.bibrecs['paper18'])
         print list(set(cls.pids[key] for key in cls.pids))
         hoover(list(set(cls.pids[key] for key in cls.pids if cls.pids[key])))
 

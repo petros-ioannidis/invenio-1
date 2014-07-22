@@ -282,6 +282,10 @@ def connect_hepnames_to_inspireID(pid, inspireID):
 class Vacuumer(object):
 
     def __init__(self, pid):
+        """Constructor of the class responsible for vacuuming the signatures to the right profile
+        
+        pid -- the pid of the author
+        """
         self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
         self.unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
         self.claimed_paper_records = set(rec[2] for rec in self.claimed_paper_signatures)
@@ -289,17 +293,25 @@ class Vacuumer(object):
         self.pid = pid
     # different signature same paper for an author
 
-    def vacuum_signatures(self, signature):
+    def vacuum_signature(self, signature):
         if signature not in self.unclaimed_paper_signatures and signature not in self.claimed_paper_signatures:
             if signature[2] in self.claimed_paper_records:
                 raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
-            if signature[2] in self.unclaimed_paper_records:
+
+            duplicated_signatures = filter(lambda x: signature[2] == x[2] , self.unclaimed_paper_signatures)
+            if duplicated_signatures:
                 logger.log("Conflict in pid ", self.pid, " with signature ", signature)
                 new_pid = get_free_author_id()
                 logger.log("Moving  conflicting signature ", signature, " from pid ", self.pid, " to pid ", new_pid)
-                move_signature(signature, new_pid)
+                move_signature(duplicated_signatures[0], new_pid)
                 # should or shouldn't
                 # check after
+                move_signature(signature, self.pid)
+                after_vacuum = (sig[1:4] for sig in get_papers_of_author(self.pid))
+                
+                if signature not in after_vacuum:
+                    move_signature(duplicated_signatures[0], self.pid)
+
                 raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
             logger.log("Hoovering ", signature, " to pid ", self.pid)
             move_signature(signature, self.pid)
@@ -536,7 +548,7 @@ def hoover(authors=None):
                         logger.log("signatures", signatures)
                         for sig in signatures:
                             try:
-                                rowenta.vacuum_signatures(sig)
+                                rowenta.vacuum_signature(sig)
                             except DuplicateClaimedPaperException as e:
                                 open_rt_ticket(e)
                             except DuplicateUnclaimedPaperException as e:
@@ -588,7 +600,7 @@ def hoover(authors=None):
             signatures = functions['signatures_getter'](res)
             for sig in signatures:
                 try:
-                    rowenta.vacuum_signatures(sig)
+                    rowenta.vacuum_signature(sig)
                 except DuplicateClaimedPaperException as e:
                     open_rt_ticket(e)
                 except DuplicateUnclaimedPaperException as e:
