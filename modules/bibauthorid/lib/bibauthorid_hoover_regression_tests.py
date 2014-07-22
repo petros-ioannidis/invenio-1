@@ -103,7 +103,13 @@ class BibAuthorIDHooverTestCase(TestCase):
                                         'inspireID': 'INSPIRE-FAKE_ID14'},
                          'author15': {
                                         'name': 'authorooooa authoroooob',
-                                        'inspireID': 'INSPIRE-FAKE_ID15'}
+                                        'inspireID': 'INSPIRE-FAKE_ID15'},
+                         'author16': {
+                                        'name': 'authorooooa authoroooob',
+                                        'inspireID': 'INSPIRE-FAKE_ID16'},
+                         'author17': {
+                                        'name': 'authorooooa authoroooob',
+                                        'inspireID': 'INSPIRE-FAKE_ID17'}
                        }
         cls.marc_xmls = dict()
         cls.bibrecs = dict()
@@ -207,6 +213,19 @@ class BibAuthorIDHooverTestCase(TestCase):
             cls.bibrecs['paper15'] = get_bibrec_for_record(cls.marc_xmls['paper15'], opt_mode='insert')
             cls.marc_xmls['paper15'] = add_001_field(cls.marc_xmls['paper15'], cls.bibrecs['paper15'])
 
+        def set_up_duplicated_unclaimed_signature():
+            cls.marc_xmls['paper16'] = get_new_marc_for_test(cls.authors['author16']['name'], (cls.authors['author16']['name'],), \
+                                                             ((cls.authors['author16']['inspireID'], 'i'),None))
+
+            cls.bibrecs['paper16'] = get_bibrec_for_record(cls.marc_xmls['paper16'], opt_mode='insert')
+            cls.marc_xmls['paper16'] = add_001_field(cls.marc_xmls['paper16'], cls.bibrecs['paper16'])
+
+        def set_up_duplicated_claimed_signature():
+            cls.marc_xmls['paper17'] = get_new_marc_for_test(cls.authors['author17']['name'], (cls.authors['author17']['name'],), \
+                                                             ((cls.authors['author17']['inspireID'], 'i'),None))
+
+            cls.bibrecs['paper17'] = get_bibrec_for_record(cls.marc_xmls['paper17'], opt_mode='insert')
+            cls.marc_xmls['paper17'] = add_001_field(cls.marc_xmls['paper17'], cls.bibrecs['paper17'])
 
         set_up_test_hoover_inertia()
         set_up_test_hoover_duplication()
@@ -218,6 +237,8 @@ class BibAuthorIDHooverTestCase(TestCase):
         set_up_test_hoover_vacuum_an_unclaimed_paper_with_an_inspire_id_from_a_claimed_paper()
         set_up_test_hoover_vacuum_a_claimed_paper_with_an_inspire_id_from_a_claimed_paper()
         set_up_test_hoover_assign_one_inspire_id_from_hepnames_record()
+        set_up_duplicated_unclaimed_signature()
+        set_up_duplicated_claimed_signature()
 
         cls.bibrecs_to_clean = [cls.bibrecs[key] for key in cls.bibrecs]
         rabbit([cls.bibrecs[key] for key in cls.bibrecs], verbose=False)
@@ -239,7 +260,7 @@ class BibAuthorIDHooverTestCase(TestCase):
         claim_test_paper(cls.bibrecs['paper11'])
         claim_test_paper(cls.bibrecs['paper13'])
         claim_test_paper(cls.bibrecs['paper14'])
-        #print list(set([cls.pids[key] for key in cls.pids]))
+        claim_test_paper(cls.bibrecs['paper17'])
         print list(set(cls.pids[key] for key in cls.pids))
         hoover(list(set(cls.pids[key] for key in cls.pids if cls.pids[key])))
 
@@ -249,21 +270,25 @@ class BibAuthorIDHooverTestCase(TestCase):
 
         # All records are wiped out for consistency.
         print "I am cleaning"
-        clean_up_the_database(cls.authors['author1']['inspireID'])
-        clean_up_the_database(cls.authors['author2']['inspireID'])
-        clean_up_the_database(cls.authors['author3']['inspireID'])
-        clean_up_the_database(cls.authors['author4']['inspireID'])
-        clean_up_the_database(cls.authors['author5']['inspireID'])
-        clean_up_the_database(cls.authors['author6']['inspireID'])
-        clean_up_the_database(cls.authors['author7']['inspireID'])
-        clean_up_the_database(cls.authors['author8']['inspireID'])
-        clean_up_the_database(cls.authors['author9']['inspireID'])
-        clean_up_the_database(cls.authors['author10']['inspireID'])
-        clean_up_the_database(cls.authors['author11']['inspireID'])
-        clean_up_the_database(cls.authors['author12']['inspireID'])
-        clean_up_the_database(cls.authors['author13']['inspireID'])
-        clean_up_the_database(cls.authors['author14']['inspireID'])
-        clean_up_the_database(cls.authors['author15']['inspireID'])
+#        clean_up_the_database(cls.authors['author1']['inspireID'])
+#        clean_up_the_database(cls.authors['author2']['inspireID'])
+#        clean_up_the_database(cls.authors['author3']['inspireID'])
+#        clean_up_the_database(cls.authors['author4']['inspireID'])
+#        clean_up_the_database(cls.authors['author5']['inspireID'])
+#        clean_up_the_database(cls.authors['author6']['inspireID'])
+#        clean_up_the_database(cls.authors['author7']['inspireID'])
+#        clean_up_the_database(cls.authors['author8']['inspireID'])
+#        clean_up_the_database(cls.authors['author9']['inspireID'])
+#        clean_up_the_database(cls.authors['author10']['inspireID'])
+#        clean_up_the_database(cls.authors['author11']['inspireID'])
+#        clean_up_the_database(cls.authors['author12']['inspireID'])
+#        clean_up_the_database(cls.authors['author13']['inspireID'])
+#        clean_up_the_database(cls.authors['author14']['inspireID'])
+#        clean_up_the_database(cls.authors['author15']['inspireID'])
+#        clean_up_the_database(cls.authors['author15']['inspireID'])
+#        clean_up_the_database(cls.authors['author15']['inspireID'])
+        for key in cls.authors:
+            clean_up_the_database(cls.authors[key]['inspireID'])
         
         for key in cls.pids:
             if cls.pids[key]:
@@ -492,7 +517,7 @@ class HepnamesHooverTestCase(BibAuthorIDHooverTestCase):
 
     @classmethod
     def tearDownClass(self):
-        BibAuthorIDHooverTestCase.tearDownClass()
+        pass
 
     def test_hepnames(self):
         def test_hoover_assign_one_inspire_id_from_hepnames_record():
@@ -500,9 +525,27 @@ class HepnamesHooverTestCase(BibAuthorIDHooverTestCase):
             print "InspireID", BibAuthorIDHooverTestCase.authors['author15']['inspireID']
             self.assertEquals(inspireID, BibAuthorIDHooverTestCase.authors['author15']['inspireID'])
 
+class DuplicatedSignaturesTestCase(BibAuthorIDHooverTestCase):
+    @classmethod
+    def setUpClass(self):
+        BibAuthorIDHooverTestCase.setUpClass()
+
+    @classmethod
+    def tearDownClass(self):
+        pass
+
+    def test_duplicated_signatures(self):
+        def duplicated_claimed_signature(self):
+            pass
+
+        def duplicated_unclaimed_signature(self):
+            pass
+
+        duplicated_claimed_signature(self)
+        duplicated_unclaimed_signature(self)
 
 
-TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase)
+TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase, DuplicatedSignaturesTestCase)
 #TEST_SUITE = make_test_suite(HepnamesHooverTestCase)
 #TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase)
 
