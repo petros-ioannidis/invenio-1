@@ -285,7 +285,6 @@ def connect_hepnames_to_inspireID(pid, inspireID):
                 "More than one hepnames record found with the same inspire id",
                 recid,
                 'INSPIREID')
-        hepname_record = get_record(recid[0])
         logger.log("I am connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID)
         add_cname_to_hepname_record(author_canonical_name, recid)
 
@@ -302,7 +301,6 @@ class Vacuumer(object):
         self.claimed_paper_records = set(rec[2] for rec in self.claimed_paper_signatures)
         self.unclaimed_paper_records = set(rec[2] for rec in self.unclaimed_paper_signatures)
         self.pid = pid
-    # different signature same paper for an author
 
     def vacuum_signature(self, signature):
         if signature not in self.unclaimed_paper_signatures and signature not in self.claimed_paper_signatures:
@@ -310,6 +308,7 @@ class Vacuumer(object):
                 raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
 
             duplicated_signatures = filter(lambda x: signature[2] == x[2], self.unclaimed_paper_signatures)
+            
             if duplicated_signatures:
                 logger.log("Conflict in pid ", self.pid, " with signature ", signature)
                 new_pid = get_free_author_id()
@@ -324,52 +323,9 @@ class Vacuumer(object):
                     move_signature(duplicated_signatures[0], self.pid)
 
                 raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
+                
             logger.log("Hoovering ", signature, " to pid ", self.pid)
             move_signature(signature, self.pid)
-
-
-def vacuum_signatures(pid, signatures, check_if_all_signatures_where_vacuumed=False):
-    claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
-    unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
-
-    signatures_to_vacuum = (set(signatures) - unclaimed_paper_signatures) - claimed_paper_signatures
-    claimed_paper_records = set(rec[2] for rec in claimed_paper_signatures)
-    unclaimed_paper_records = set(rec[2] for rec in unclaimed_paper_signatures)
-    # different signature same paper for an author
-    expt = None
-    for sig in signatures_to_vacuum:
-        if sig[2] in claimed_paper_records:
-            # outside of for
-            expt = DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", pid)
-
-        if sig[2] in unclaimed_paper_records:
-            logger.log("Conflict in pid ", pid, " with signature ", sig)
-            new_pid = get_free_author_id()
-            logger.log("Moving  conflicting signature ", sig, " from pid ", pid, " to pid ", new_pid)
-            move_signature(sig, new_pid)
-            # should or shouldn't
-            # check after
-            # expt = raise DuplicateUnclaimedPaper("Vacuum a duplicated unclaimed paper", pid)
-        logger.log("Hoovering ", sig, " to pid ", pid)
-        move_signature(sig, pid)
-
-    if expt:
-        raise expt
-    if check_if_all_signatures_where_vacuumed:
-        paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid))
-        logger.log("Paper_signatures", paper_signatures)
-        total_signatures = set(signatures)
-        logger.log("total_signatures", total_signatures)
-        total_signatures = total_signatures.union(unclaimed_paper_signatures).union(claimed_paper_signatures)
-        logger.log("Second total_signatures", total_signatures)
-        if paper_signatures == total_signatures:
-            return True
-        # exception instead of false
-        return False
-    else:
-        # we assume all signatures were vacuumed correctly and skip an expensive test.
-        return True
-
 
 def get_signatures_with_inspireID(inspireID):
     """get and vacuum of the signatures that belong to this inspireID
