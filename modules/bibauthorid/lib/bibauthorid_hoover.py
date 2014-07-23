@@ -52,6 +52,7 @@ def timed(func):
 
 
 class ConflictingIdsException(Exception):
+
     """Base class for conflicting ids in authors"""
 
     def __init__(self, message, pid, identifier_type):
@@ -68,16 +69,19 @@ class ConflictingIdsException(Exception):
 
 
 class ConflictingIdsFromReliableSourceException(ConflictingIdsException):
+
     """Class for conflicting ids in authors that are caused from reliable sources"""
     pass
 
 
 class ConflictingIdsFromUnreliableSourceException(ConflictingIdsException):
+
     """Class for conflicting ids in authors that are caused from unreliable sources"""
     pass
 
 
 class DuplicatePaperException(Exception):
+
     """Base class for duplicated papers conflicts"""
 
     def __init__(self, message, pid, signature):
@@ -94,16 +98,19 @@ class DuplicatePaperException(Exception):
 
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
+
     """Class for duplicated papers conflicts when one of them is claimed"""
     pass
 
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
+
     """Class for duplicated papers conflicts when one of them is unclaimed"""
     pass
 
 
 class BrokenHepNamesRecordException(Exception):
+
     """Base class for broken HepNames records"""
 
     def __init__(self, message, recid, identifier_type):
@@ -120,6 +127,7 @@ class BrokenHepNamesRecordException(Exception):
 
 
 class MultipleHepnamesRecordsWithSameIdException(Exception):
+
     """Base class for conflicting HepNames records"""
 
     def __init__(self, message, recids, identifier_type):
@@ -136,6 +144,7 @@ class MultipleHepnamesRecordsWithSameIdException(Exception):
 
 
 class MultipleAuthorsWithSameIdException(Exception):
+
     """Base class for multiple authors with the same id"""
 
     def __init__(self, message, pids, identifier_type):
@@ -152,6 +161,7 @@ class MultipleAuthorsWithSameIdException(Exception):
 
 
 class MultipleIdsOnSingleAuthorException(Exception):
+
     """Base class for multiple ids on a single author"""
 
     def __init__(self, message, pid, ids, identifier_type):
@@ -170,6 +180,7 @@ class MultipleIdsOnSingleAuthorException(Exception):
 
 
 class NoCanonicalNameException(Exception):
+
     """Base class for no canonical name found for a pid"""
 
     def __init__(self, message, pid):
@@ -283,7 +294,7 @@ class Vacuumer(object):
 
     def __init__(self, pid):
         """Constructor of the class responsible for vacuuming the signatures to the right profile
-        
+
         pid -- the pid of the author
         """
         self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
@@ -298,7 +309,7 @@ class Vacuumer(object):
             if signature[2] in self.claimed_paper_records:
                 raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
 
-            duplicated_signatures = filter(lambda x: signature[2] == x[2] , self.unclaimed_paper_signatures)
+            duplicated_signatures = filter(lambda x: signature[2] == x[2], self.unclaimed_paper_signatures)
             if duplicated_signatures:
                 logger.log("Conflict in pid ", self.pid, " with signature ", signature)
                 new_pid = get_free_author_id()
@@ -308,7 +319,7 @@ class Vacuumer(object):
                 # check after
                 move_signature(signature, self.pid)
                 after_vacuum = (sig[1:4] for sig in get_papers_of_author(self.pid))
-                
+
                 if signature not in after_vacuum:
                     move_signature(duplicated_signatures[0], self.pid)
 
@@ -453,7 +464,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
 @timed
 def hoover(authors=None):
     """Long description"""
-    
+
     logger.log("Selecting records with identifiers...")
     recs = get_records_with_tag('100__i')
     recs += get_records_with_tag('100__j')
@@ -511,11 +522,11 @@ def hoover(authors=None):
     # change the names
     if not authors:
         authors = get_existing_authors()
-    
+
     logger.log("Running on ", len(authors), " !")
 
     unclaimed_authors = defaultdict(set)
-    
+
     for index, pid in enumerate(authors):
         logger.log("Searching for reliable ids of person %s" % pid)
         for identifier_type, functions in fdict_id_getters.iteritems():
@@ -539,9 +550,9 @@ def hoover(authors=None):
             else:
                 logger.log("   No reliable id found")
                 unclaimed_authors[identifier_type].add(pid)
-    
+
     logger.log("Vacuuming reliable ids...")
-    
+
     for identifier_type, data in fdict_id_getters.iteritems():
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
             logger.log("   Person %s has reliable identifier(s) %s " % str(identifiers))
@@ -549,7 +560,7 @@ def hoover(authors=None):
                 if len(identifiers) == 1:
                     identifier = list(identifiers)[0]
                     logger.log("        Considering  ", identifier)
-                    
+
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
                         rowenta = Vacuumer(pid)
                         signatures = data['signatures_getter'](identifier)
@@ -565,7 +576,7 @@ def hoover(authors=None):
                         logger.log("        Adding inspireid ", identifier, " to pid ", pid)
                         add_external_id_to_author(pid, identifier_type, identifier)
                         fdict_id_getters[identifier_type]['connection'](pid, identifier)
-                        
+
                     else:
                         raise MultipleAuthorsWithSameIdException(
                             "More than one authors with the same identifier",
@@ -581,11 +592,14 @@ def hoover(authors=None):
                 open_rt_ticket(e)
             except MultipleIdsOnSingleAuthorException as e:
                 open_rt_ticket(e)
+            logger.log("   Done with ", pid)
+
+    logger.log("Vacuuming unreliable ids...")
 
     for index, pid in enumerate(unclaimed_authors[identifier_type]):
         for identifier_type, functions in fdict_id_getters.iteritems():
 
-            logger.log("\npid ", pid)
+            logger.log("Searching for urreliable ids of person %s" % pid)
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
@@ -596,13 +610,15 @@ def hoover(authors=None):
                 open_rt_ticket(e)
                 continue
 
-            logger.log("found unreliable id", res)
+            logger.log("   Person %s has unreliable identifier %s " % str(res))
+
             if res in fdict_id_getters[identifier_type]['data_dicts']['id_mapping']:
-                logger.log("Id", res, " already there")
-                logger.log("skipping author", pid)
+                logger.log("        Id %s is already assigned to another person, skipping person %s " % (str(res), pid))
                 continue
+
             rowenta = Vacuumer(pid)
             signatures = functions['signatures_getter'](res)
+
             for sig in signatures:
                 try:
                     rowenta.vacuum_signature(sig)
@@ -610,10 +626,11 @@ def hoover(authors=None):
                     open_rt_ticket(e)
                 except DuplicateUnclaimedPaperException as e:
                     pass
-                finally:
-                    logger.log("Adding inspireid ", res, " to pid ", pid)
-                    add_external_id_to_author(pid, identifier_type, res)
-                    fdict_id_getters[identifier_type]['connection'](pid, res)
+
+            logger.log("     Adding inspireid ", res, " to pid ", pid)
+            add_external_id_to_author(pid, identifier_type, res)
+            fdict_id_getters[identifier_type]['connection'](pid, res)
+            logger.log("   Done with ", pid)
 
 if __name__ == "__main__":
     logger.log("Initializing hoover")
