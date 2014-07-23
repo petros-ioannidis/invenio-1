@@ -511,7 +511,7 @@ def hoover(authors=None):
 
     for identifier_type, data in fdict_id_getters.iteritems():
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
-            logger.log("   Person %s has reliable identifier(s) %s " % str(identifiers))
+            logger.log("   Person %s has reliable identifier(s) %s " % (str(pid),str(identifiers)))
             try:
                 if len(identifiers) == 1:
                     identifier = list(identifiers)[0]
@@ -566,7 +566,7 @@ def hoover(authors=None):
                 open_rt_ticket(e)
                 continue
 
-            logger.log("   Person %s has unreliable identifier %s " % str(res))
+            logger.log("   Person %s has unreliable identifier %s " % (str(pid),str(res)))
 
             if res in fdict_id_getters[identifier_type]['data_dicts']['id_mapping']:
                 logger.log("        Id %s is already assigned to another person, skipping person %s " % (str(res), pid))
