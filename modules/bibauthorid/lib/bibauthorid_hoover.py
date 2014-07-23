@@ -453,12 +453,15 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
 @timed
 def hoover(authors=None):
     """Long description"""
-
+    
+    logger.log("Selecting records with identifiers...")
     recs = get_records_with_tag('100__i')
     recs += get_records_with_tag('100__j')
     recs += get_records_with_tag('700__i')
     recs += get_records_with_tag('700__j')
+    logger.log("Found %s records" % len(recs))
     recs = set(recs) & set(run_sql("select DISTINCT(bibrec) from aidPERSONIDPAPERS"))
+    logger.log("   out of owhich %s are in BibAuthorID" % len(recs))
 
     records_with_id = set(rec[0] for rec in recs)
     # records_with_id = [rec[0] for rec in set(recs)]
@@ -508,16 +511,18 @@ def hoover(authors=None):
     # change the names
     if not authors:
         authors = get_existing_authors()
-    logger.log("running on ", len(authors), " !")
+    
+    logger.log("Running on ", len(authors), " !")
 
-    logger.log("authors", authors)
     unclaimed_authors = defaultdict(set)
-    reliable = True
+    
     for index, pid in enumerate(authors):
+        logger.log("Searching for reliable ids of person %s" % pid)
         for identifier_type, functions in fdict_id_getters.iteritems():
-            logger.log("\npid ", pid)
+            logger.log("    Type: %s" % identifier_type)
+
             G = (func(pid) for func in functions['reliable'])
-            # try:
+
             try:
                 res = next((func for func in G if func), None)
             except ConflictingIdsFromReliableSourceException as e:
@@ -527,25 +532,28 @@ def hoover(authors=None):
                 open_rt_ticket(e)
                 continue
 
-            print "unclaimed authors",unclaimed_authors[identifier_type].add(pid)
             if res:
-                logger.log("found reliable id", res)
+                logger.log("   Found reliable id ", res)
                 fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
                 fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
             else:
+                logger.log("   No reliable id found")
                 unclaimed_authors[identifier_type].add(pid)
-
+    
+    logger.log("Vacuuming reliable ids...")
+    
     for identifier_type, data in fdict_id_getters.iteritems():
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
-            # check for duplication
+            logger.log("   Person %s has reliable identifier(s) %s " % str(identifiers))
             try:
                 if len(identifiers) == 1:
                     identifier = list(identifiers)[0]
-                    logger.log("identifier", identifier)
+                    logger.log("        Considering  ", identifier)
+                    
                     if len(data['data_dicts']['id_mapping'][identifier]) == 1:
                         rowenta = Vacuumer(pid)
                         signatures = data['signatures_getter'](identifier)
-                        logger.log("signatures", signatures)
+                        logger.log("        Vacuuming %s signatures! " % str(len(signatures)))
                         for sig in signatures:
                             try:
                                 rowenta.vacuum_signature(sig)
@@ -553,30 +561,27 @@ def hoover(authors=None):
                                 open_rt_ticket(e)
                             except DuplicateUnclaimedPaperException as e:
                                 unclaimed_authors[identifier_type].add(e.pid)
-                            finally:
-                                logger.log("Adding inspireid ", identifier, " to pid ", pid)
-                                add_external_id_to_author(pid, identifier_type, identifier)
-                                fdict_id_getters[identifier_type]['connection'](pid, identifier)
+
+                        logger.log("        Adding inspireid ", identifier, " to pid ", pid)
+                        add_external_id_to_author(pid, identifier_type, identifier)
+                        fdict_id_getters[identifier_type]['connection'](pid, identifier)
+                        
                     else:
-                        print "auth",data['data_dicts']['id_mapping'][identifier]
                         raise MultipleAuthorsWithSameIdException(
                             "More than one authors with the same identifier",
                             data['data_dicts']['id_mapping'][identifier],
                             identifier)
                 else:
-                    print "ident",identifiers
                     raise MultipleIdsOnSingleAuthorException(
-                        "More than one identifier on a single author",
+                        "More than one identifier on a single author ",
                         pid,
-                        identifiers,
-                        identifier)
+                        identifiers)
 
             except MultipleAuthorsWithSameIdException as e:
                 open_rt_ticket(e)
             except MultipleIdsOnSingleAuthorException as e:
                 open_rt_ticket(e)
 
-    reliable = False
     for index, pid in enumerate(unclaimed_authors[identifier_type]):
         for identifier_type, functions in fdict_id_getters.iteritems():
 
