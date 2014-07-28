@@ -492,6 +492,10 @@ def hoover(authors=None):
 
             try:
                 res = next((func for func in G if func), None)
+                
+                if res is None:
+                    continue
+                
             except ConflictingIdsFromReliableSourceException as e:
                 open_rt_ticket(e)
                 continue
@@ -559,6 +563,10 @@ def hoover(authors=None):
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
+                
+                if res is None:
+                    continue
+                
             except ConflictingIdsFromUnreliableSourceException:
                 open_rt_ticket(e)
                 continue
