@@ -285,7 +285,7 @@ def connect_hepnames_to_inspireID(pid, inspireID):
                 "More than one hepnames record found with the same inspire id",
                 recid,
                 'INSPIREID')
-        logger.log("I am connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID)
+        logger.log("Connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID)
         add_cname_to_hepname_record(author_canonical_name, recid)
 
 
