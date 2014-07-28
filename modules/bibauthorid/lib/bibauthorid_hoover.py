@@ -1,7 +1,7 @@
 import sys
 from time import time
 from invenio.search_engine import get_record, \
-    perform_request_search
+    perform_request_search, search_unit_in_bibxxx
 
 from invenio.bibauthorid_logutils import Logger
 
@@ -244,6 +244,11 @@ def get_signatures_with_orcid_cache(orcid):
     return _get_signatures_with_tag_value_cache(orcid, '__j')
 
 
+def get_all_recids_in_hepnames():
+    return  set(perform_request_search(p='', cc='HepNames', rg=0))
+
+get_all_recids_in_hepnames = memoized(get_all_recids_in_hepnames)
+
 def get_inspireID_from_hepnames(pid):
     """return inspireID of a pid by searching the hepnames
 
@@ -251,8 +256,16 @@ def get_inspireID_from_hepnames(pid):
     pid -- the pid of the author to search in the hepnames dataset
     """
     author_canonical_name = get_canonical_name_of_author(pid)
+    hepnames_recids = get_all_recids_in_hepnames()
     try:
-        recid = perform_request_search(p="035:" + author_canonical_name[0][0], cc="HepNames")
+        #recid = perform_request_search(p="035:" + author_canonical_name[0][0], cc="HepNames")
+        recid = set(search_unit_in_bibxxx(p=author_canonical_name[0][0], f='035__', type='='))
+        recid = list(recid & hepnames_recids)
+        
+        if len(recid)>1:
+            #raise Exception('TODO: more then one hepname with same BAI exception')
+            return None
+
         hepname_record = get_record(recid[0])
         fields_dict = [dict(x[0]) for x in hepname_record['035']]
         for d in fields_dict:
