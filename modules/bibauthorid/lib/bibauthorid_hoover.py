@@ -28,18 +28,15 @@ except ImportError:
 
 
 def open_rt_ticket(e):
-
-    msg = "Exception " + e.__repr__() + " was raised with arguments:\n"
-    for key, value in vars(e).iteritems():
-        msg += str(key) + " " + str(value) + "\n"
-    subject = ""
-    text = ""
-    queue = ""
+    subject = e.get_message_subject()
+    body = e.get_message_body()
+    debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
+    queue = ''
     if bconfig.HOOVER_OPEN_RT_TICKETS:
-        BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=text,
+        BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=body+'\n Debugging information: \n'+debug,
                                         queue=queue, priority="", owner="", requestor="")
     else:
-        logger.log(msg)
+        logger.log('sub: '+subject+'\nbody:\n'+body+'\ndbg:\n'+debug)
 
 
 def timed(func):
@@ -51,11 +48,22 @@ def timed(func):
     return print_time
 
 
-class ConflictingIdsException(Exception):
+class HooverException(Exception):
+
+    def __init__(self):
+        pass
+
+    def get_message_body(self):
+        raise NotImplemented()
+
+    def get_message_subject(self):
+        raise NotImplemented
+
+class ConflictingIdsException(HooverException):
 
     """Base class for conflicting ids in authors"""
 
-    def __init__(self, message, pid, identifier_type):
+    def __init__(self, message, pid, identifier_type, ids_list):
         """Set up the exception class
 
         arguments:
@@ -66,25 +74,38 @@ class ConflictingIdsException(Exception):
         Exception.__init__(self, message)
         self.pid = pid
         self.identifier_type = identifier_type
+        self.ids_list = ids_list
 
 
 class ConflictingIdsFromReliableSourceException(ConflictingIdsException):
 
     """Class for conflicting ids in authors that are caused from reliable sources"""
-    pass
+    def get_message_subject(self):
+        return "[Hoover] Conflicting identifiers in user verified data"
+
+    def get_massega_body(self):
+        msg = ["Found conflicting %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
+        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
+        return '\n'.join(msg)
 
 
 class ConflictingIdsFromUnreliableSourceException(ConflictingIdsException):
 
     """Class for conflicting ids in authors that are caused from unreliable sources"""
-    pass
+    def get_message_subject(self):
+        return "[Hoover] Conflicting identifiers unverified data"
+
+    def get_massega_body(self):
+        msg = ["Found conflicting %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
+        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
+        return '\n'.join(msg)
 
 
-class DuplicatePaperException(Exception):
+class DuplicatePaperException(HooverException):
 
     """Base class for duplicated papers conflicts"""
 
-    def __init__(self, message, pid, signature):
+    def __init__(self, message, pid, signature, present_signature):
         """Set up the exception class
 
         arguments:
@@ -95,13 +116,22 @@ class DuplicatePaperException(Exception):
         Exception.__init__(self, message)
         self.pid = pid
         self.signature = signature
-
+        self.present_signature = present_signature
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
 
     """Class for duplicated papers conflicts when one of them is claimed"""
-    pass
+    def get_message_subject(self):
+        return '[Hoover] Wrong signature claimed to profile'
 
+    def get_message_body(self):
+        msg = ['Found wrong signature claimed to profile ']
+        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid))
+        #TODO: add to exception information about which ID is requiring the move
+        #TODO: represent signatures in a cataloguer-friendly way
+        msg.append("want to move %s to this profile but %s il already present and claimed" %
+                    (self.signature, self.present_signature))
+        return '\n'.join(msg)
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
 
@@ -109,7 +139,7 @@ class DuplicateUnclaimedPaperException(DuplicatePaperException):
     pass
 
 
-class BrokenHepNamesRecordException(Exception):
+class BrokenHepNamesRecordException(HooverException):
 
     """Base class for broken HepNames records"""
 
@@ -125,8 +155,15 @@ class BrokenHepNamesRecordException(Exception):
         self.recid = recid
         self.identifier_type = identifier_type
 
+    def get_message_subject(self):
+        return '[Hoover] Found a broken HepNames record'
 
-class MultipleHepnamesRecordsWithSameIdException(Exception):
+    def get_message_body(self):
+        msg = ['Found broken hepnames record http://inspirehep.net/record/%s' % self.recid]
+        msg.append('Something went wroing while trying to read the %s identifier' % self.identifier_type)
+        return '\n'.join(msg)
+
+class MultipleHepnamesRecordsWithSameIdException(HooverException):
 
     """Base class for conflicting HepNames records"""
 
@@ -142,8 +179,16 @@ class MultipleHepnamesRecordsWithSameIdException(Exception):
         self.recids = tuple(recids)
         self.identifier_type = identifier_type
 
+    def get_message_subject(self):
+        return '[Hoover] Found conflicting hepnames records'
 
-class MultipleAuthorsWithSameIdException(Exception):
+    def get_message_body(self):
+        msg = ['Found conflicting hepnames records: ']
+        msg += ['http://inspirehep.net/record/%s' % r for r in self.recids]
+        msg.append('Those records are sharing the same %s identifier!' % self.identifier_type)
+        return '\n'.join(msg)
+
+class MultipleAuthorsWithSameIdException(HooverException):
 
     """Base class for multiple authors with the same id"""
 
@@ -159,8 +204,16 @@ class MultipleAuthorsWithSameIdException(Exception):
         self.pids = tuple(pids)
         self.identifier_type = identifier_type
 
+    def get_message_subject(self):
+        return '[Hoover] Found conflicting profile user-verified identifiers'
 
-class MultipleIdsOnSingleAuthorException(Exception):
+    def get_message_body(self):
+        msg = ['Found conflicting profiles with conflicting user-verified identifiers: ']
+        msg += ['http://inspirehep.net/author/profile/%s' % r for r in self.pids]
+        msg.append('Those records are sharing the same %s identifier!' % self.identifier_type)
+        return '\n'.join(msg)
+
+class MultipleIdsOnSingleAuthorException(HooverException):
 
     """Base class for multiple ids on a single author"""
 
@@ -178,8 +231,19 @@ class MultipleIdsOnSingleAuthorException(Exception):
         self.ids = tuple(ids)
         self.identifier_type = identifier_type
 
+    def get_message_subject(self):
+        return '[Hoover] Found profile with multipre conflicting user-verified identifiers'
 
-class NoCanonicalNameException(Exception):
+    def get_message_body(self):
+        msg = ['Found profile with multipre conflicting user-verified identifiers: ']
+        msg += ['http://inspirehep.net/author/profile/%s' % self.pid]
+        msg.append('This profile has all this %s identifiers:' % self.identifier_type)
+        msg.append(', '.join(str(x) for x in self.ids))
+        msg.append('Each profile should have only one identifier of each kind.')
+        return '\n'.join(msg)
+
+class NoCanonicalNameException(HooverException):
+    #TODO: not used?
 
     """Base class for no canonical name found for a pid"""
 
@@ -261,7 +325,7 @@ def get_inspireID_from_hepnames(pid):
         #recid = perform_request_search(p="035:" + author_canonical_name[0][0], cc="HepNames")
         recid = set(search_unit_in_bibxxx(p=author_canonical_name[0][0], f='035__', type='='))
         recid = list(recid & hepnames_recids)
-        
+
         if len(recid)>1:
             #raise Exception('TODO: more then one hepname with same BAI exception')
             return None
@@ -318,14 +382,15 @@ class Vacuumer(object):
     def vacuum_signature(self, signature):
         if signature not in self.unclaimed_paper_signatures and signature not in self.claimed_paper_signatures:
             if signature[2] in self.claimed_paper_records:
-                raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature)
+                raise DuplicateClaimedPaperException("Vacuum a duplicated claimed paper", self.pid, signature,
+                                                     filter(lambda x: x[2] == signature[2], self.claimed_paper_signatures))
 
             duplicated_signatures = filter(lambda x: signature[2] == x[2], self.unclaimed_paper_signatures)
-            
+
             if duplicated_signatures:
                 logger.log("Conflict in pid ", self.pid, " with signature ", signature)
                 new_pid = get_free_author_id()
-                logger.log("Moving  conflicting signature ", signature, " from pid ", self.pid, " to pid ", new_pid)
+                logger.log("Moving  conflicting signature ", duplicated_signatures[0], " from pid ", self.pid, " to pid ", new_pid)
                 move_signature(duplicated_signatures[0], new_pid)
                 # should or shouldn't
                 # check after
@@ -335,8 +400,8 @@ class Vacuumer(object):
                 if signature not in after_vacuum:
                     move_signature(duplicated_signatures[0], self.pid)
 
-                raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature)
-                
+                raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature, duplicated_signatures )
+
             logger.log("Hoovering ", signature, " to pid ", self.pid)
             move_signature(signature, self.pid)
 
@@ -394,7 +459,7 @@ def get_inspireID_from_claimed_papers(pid, intersection_set=None):
     except IndexError:
         return None
     else:
-        raise ConflictingIdsFromReliableSourceException('Claimed Papers', pid, 'INSPIREID')
+        raise ConflictingIdsFromReliableSourceException('Claimed Papers', pid, 'INSPIREID', inspireID_list)
 
 
 def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
@@ -427,7 +492,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     except IndexError:
         return None
     else:
-        raise ConflictingIdsFromUnreliableSourceException('Unclaimed Papers', pid, 'INSPIREID')
+        raise ConflictingIdsFromUnreliableSourceException('Unclaimed Papers', pid, 'INSPIREID', inspireID_list)
 
 
 @timed
@@ -572,10 +637,10 @@ def hoover(authors=None):
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
-                
+
                 if res is None:
                     continue
-                
+
             except ConflictingIdsFromUnreliableSourceException:
                 open_rt_ticket(e)
                 continue
