@@ -964,20 +964,20 @@ def most_relevant_name(name_variants):
     '''
     if not name_variants:
         return None
-    name_parts_list = list()
 
-    for name in name_variants:
-        name_parts_list.append(split_name_parts(name))
+    name_parts_list = [(index, split_name_parts(name))
+                                   for index, name in enumerate(name_variants)]
 
     sorted_by_initials = sorted(name_parts_list,
-                                key=lambda k: len(k[1]),
+                                key=lambda k: len(k[1][1]),
                                 reverse=True)
-                                 
-    sorted_by_relevance_name_list = sorted(sorted_by_initials,
-                                           key=lambda k: len(k[2]),
-                                           reverse=True)
 
-    return create_normalized_name(sorted_by_relevance_name_list[0])
+    most_relevant_name_idx = sorted(sorted_by_initials,
+                                    key=lambda k: len(k[1][2]),
+                                    reverse=True)[0][0]
+
+    return name_variants[most_relevant_name_idx]
+
 
 GLOBAL_gendernames = _load_gender_firstnames_dict()
 GLOBAL_name_variations = _load_firstname_variations()
