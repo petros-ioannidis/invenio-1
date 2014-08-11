@@ -337,7 +337,7 @@ def get_inspireID_from_hepnames(pid):
                 try:
                     return d['a']
                 except KeyError:
-                    raise BrokenHepNamesRecordException("Broken HepNames record", recid, 'INSPIREID')
+                    raise BrokenHepNamesRecordException("Broken HepNames record", recid[0], 'INSPIREID')
     except IndexError:
         return None
     except KeyError:
