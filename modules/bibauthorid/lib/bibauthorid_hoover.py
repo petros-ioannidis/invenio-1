@@ -505,24 +505,20 @@ def hoover(authors=None):
 
             try:
                 res = next((func for func in G if func), None)
-                
-                if res is None:
-                    continue
-                
             except ConflictingIdsFromReliableSourceException as e:
                 open_rt_ticket(e)
                 continue
             except BrokenHepNamesRecordException as e:
                 open_rt_ticket(e)
                 continue
-
-            if res:
-                logger.log("   Found reliable id ", res)
-                fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
-                fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
             else:
-                logger.log("   No reliable id found")
-                unclaimed_authors[identifier_type].add(pid)
+                if res:
+                    logger.log("   Found reliable id ", res)
+                    fdict_id_getters[identifier_type]['data_dicts']['pid_mapping'][pid].add(res)
+                    fdict_id_getters[identifier_type]['data_dicts']['id_mapping'][res].add(pid)
+                else:
+                    logger.log("   No reliable id found")
+                    unclaimed_authors[identifier_type].add(pid)
 
     logger.log("Vacuuming reliable ids...")
 
@@ -545,7 +541,6 @@ def hoover(authors=None):
                                 open_rt_ticket(e)
                             except DuplicateUnclaimedPaperException as e:
                                 unclaimed_authors[identifier_type].add(e.pid)
-
                         logger.log("        Adding inspireid ", identifier, " to pid ", pid)
                         add_external_id_to_author(pid, identifier_type, identifier)
                         fdict_id_getters[identifier_type]['connection'](pid, identifier)
@@ -568,10 +563,11 @@ def hoover(authors=None):
             logger.log("   Done with ", pid)
 
     logger.log("Vacuuming unreliable ids...")
+    print "unclaimed_authors"
+    print unclaimed_authors['INSPIREID']
 
-    for index, pid in enumerate(unclaimed_authors[identifier_type]):
-        for identifier_type, functions in fdict_id_getters.iteritems():
-
+    for identifier_type, functions in fdict_id_getters.iteritems():
+        for index, pid in enumerate(unclaimed_authors[identifier_type]):
             logger.log("Searching for urreliable ids of person %s" % pid)
             G = (func(pid) for func in functions['unreliable'])
             try:
