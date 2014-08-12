@@ -101,7 +101,7 @@ class ConflictingIdsFromReliableSourceException(ConflictingIdsException):
     def get_message_subject(self):
         return "[Hoover] Conflicting identifiers in user verified data"
 
-    def get_massega_body(self):
+    def get_message_body(self):
         msg = ["Found conflicting %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
         msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
         return '\n'.join(msg)
