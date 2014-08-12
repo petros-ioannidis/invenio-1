@@ -123,7 +123,7 @@ class DuplicatePaperException(HooverException):
 
     """Base class for duplicated papers conflicts"""
 
-    def __init__(self, message, pid, signature, present_signature):
+    def __init__(self, message, pid, signature, present_signatures):
         """Set up the exception class
 
         arguments:
@@ -134,7 +134,7 @@ class DuplicatePaperException(HooverException):
         Exception.__init__(self, message)
         self.pid = pid
         self.signature = signature
-        self.present_signature = present_signature
+        self.present_signatures = present_signatures
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
 
@@ -152,10 +152,12 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
         msg.append("http://inspirehep.net/author/profile/%s" % cname)
         #TODO: add to exception information about which ID is requiring the move
         sig_name = get_name_by_bibref(self.signature[0:2])
-        p_sig_name = get_name_by_bibref(self.present_signature[0:2])
+        p_sigs = [(x,get_name_by_bibref(x[0:2])) for x in self.present_signatures]
 
-        msg.append("want to move %s (%s on record %s) to this profile but %s (%s on record %s) is already present and claimed" %
-                    (self.signature, sig_name, self.signature[3], self.present_signature, p_sig_name, self.present_signature[3]))
+        p_sig_strings = ",".join( '%s (%s on record %s)' % (x[0],x[1],x[1][3]) for x in p_sigs)
+
+        msg.append("want to move %s (%s on record %s) to this profile but [%s] are already present and claimed" %
+                    (self.signature, sig_name, self.signature[3], p_sig_strings))
         return '\n'.join(msg)
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
