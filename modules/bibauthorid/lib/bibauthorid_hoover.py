@@ -154,10 +154,10 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
         sig_name = get_name_by_bibref(self.signature[0:2])
         p_sigs = [(x,get_name_by_bibref(x[0:2])) for x in self.present_signatures]
 
-        p_sig_strings = ",".join( '%s (%s on record %s)' % (x[0],x[1],x[1][3]) for x in p_sigs)
+        p_sig_strings = ",".join( '%s (%s on record %s)' % (x[0],x[1],x[1][2]) for x in p_sigs)
 
         msg.append("want to move %s (%s on record %s) to this profile but [%s] are already present and claimed" %
-                    (self.signature, sig_name, self.signature[3], p_sig_strings))
+                    (self.signature, sig_name, self.signature[2], p_sig_strings))
         return '\n'.join(msg)
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
