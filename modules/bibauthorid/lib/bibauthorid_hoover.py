@@ -12,7 +12,7 @@ from invenio.bibauthorid_dbinterface import get_existing_authors, \
     _get_external_ids_from_papers_of_author, get_claimed_papers_of_author, \
     get_inspire_id_of_signature, populate_partial_marc_caches, move_signature, \
     add_external_id_to_author, get_free_author_id, get_inspire_id_of_author, \
-    get_orcid_id_of_author, destroy_partial_marc_caches
+    get_orcid_id_of_author, destroy_partial_marc_caches, get_name_by_bibref
 from invenio.bibauthorid_general_utils import memoized
 import invenio.bibauthorid_dbinterface as db
 import invenio.bibauthorid_config as bconfig
@@ -60,17 +60,17 @@ class HooverException(Exception):
         raise NotImplementedError(self.__repr__())
 
 class ConflictingIdsOnRecordException(HooverException):
-    
+
     def __init__(self, message, pid, identifier_type, ids_list, record):
         Exception.__init__(self, message)
         self.pid = pid
         self.identifier_type = identifier_type
         self.ids_list = ids_list
         self.record = record
-    
+
     def get_message_subject(self):
         return '[Hoover] Signature on record holds more then one identifiers of the same kind'
-    
+
     def get_message_body(self):
         msg = ['Signature on record holds more then one identifiers of the same kind']
         msg.append("http://inspirehep.net/record/%s" % self.record)
@@ -144,11 +144,18 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
 
     def get_message_body(self):
         msg = ['Found wrong signature claimed to profile ']
-        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid))
+        try:
+            cname = get_canonical_name_of_author(self.pid)[0]
+        except IndexError:
+            cname = self.pid
+
+        msg.append("http://inspirehep.net/author/profile/%s" % cname)
         #TODO: add to exception information about which ID is requiring the move
-        #TODO: represent signatures in a cataloguer-friendly way
-        msg.append("want to move %s to this profile but %s il already present and claimed" %
-                    (self.signature, self.present_signature))
+        sig_name = get_name_by_bibref(self.signature[0:2])
+        p_sig_name = get_name_by_bibref(self.present_signature[0:2])
+
+        msg.append("want to move %s (%s on record %s) to this profile but %s (%s on record %s) is already present and claimed" %
+                    (self.signature, sig_name, self.signature[3], self.present_signature, p_sig_name, self.present_signature[3]))
         return '\n'.join(msg)
 
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
@@ -228,7 +235,7 @@ class MultipleAuthorsWithSameIdException(HooverException):
     def get_message_body(self):
         msg = ['Found conflicting profiles with conflicting user-verified identifiers: ']
         msg += ['http://inspirehep.net/author/profile/%s' % r for r in self.pids]
-        msg.append('Those records are sharing the same %s identifier!' % self.identifier_type)
+        msg.append('Those profiles are sharing the same %s identifier!' % self.identifier_type)
         return '\n'.join(msg)
 
 class MultipleIdsOnSingleAuthorException(HooverException):
@@ -505,7 +512,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
             if len(inspireID) > 1:
                 open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids fourd', pid, 'INSPIREID', inspireID, sig[2]))
                 return None
-                
+
             inspireID_list.append(inspireID[0])
 
     try:
