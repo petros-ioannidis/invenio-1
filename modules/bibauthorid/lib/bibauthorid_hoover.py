@@ -400,7 +400,7 @@ class Vacuumer(object):
                 if signature not in after_vacuum:
                     move_signature(duplicated_signatures[0], self.pid)
 
-                raise DuplicateUnclaimedPaperException("Vacuum a duplicated claimed paper", new_pid, signature, duplicated_signatures )
+                raise DuplicateUnclaimedPaperException("Vacuum a duplicated unclaimed paper", new_pid, signature, duplicated_signatures )
 
             logger.log("Hoovering ", signature, " to pid ", self.pid)
             move_signature(signature, self.pid)
@@ -641,10 +641,10 @@ def hoover(authors=None):
                 if res is None:
                     continue
 
-            except ConflictingIdsFromUnreliableSourceException:
+            except ConflictingIdsFromUnreliableSourceException as e:
                 open_rt_ticket(e)
                 continue
-            except BrokenHepNamesRecordException:
+            except BrokenHepNamesRecordException as e:
                 open_rt_ticket(e)
                 continue
 
