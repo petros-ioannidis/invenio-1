@@ -59,6 +59,24 @@ class HooverException(Exception):
     def get_message_subject(self):
         raise NotImplementedError(self.__repr__())
 
+class ConflictingIdsOnRecordException(HooverException):
+    
+    def __init__(self, message, pid, identifier_type, ids_list, record):
+        Exception.__init__(self, message)
+        self.pid = pid
+        self.identifier_type = identifier_type
+        self.ids_list = ids_list
+        self.record = record
+    
+    def get_message_subject(self):
+        return '[Hoover] Signature on record holds more then one identifiers of the same kind'
+    
+    def get_message_body(self):
+        msg = ['Signature on record holds more then one identifiers of the same kind']
+        msg.append("http://inspirehep.net/record/%s" % self.record)
+        msg.append("The following ids are associated to the same name: %s" % ', '.join(self.ids_list))
+        return '\n'.join(msg)
+
 class ConflictingIdsException(HooverException):
 
     """Base class for conflicting ids in authors"""
@@ -483,7 +501,11 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     for sig in unclaimed_paper_signatures:
         inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
-            assert(len(inspireID) == 1)
+
+            if len(inspireID) > 1:
+                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids fourd', pid, 'INSPIREID', inspireID, sig[2]))
+                return None
+                
             inspireID_list.append(inspireID[0])
 
     try:
