@@ -1,4 +1,5 @@
 from unittest import *
+from mock import *
 import os
 
 from invenio.testutils import make_test_suite
@@ -38,6 +39,13 @@ def clean_up_the_database(inspireID):
     if inspireID:
         run_sql("delete from aidPERSONIDDATA where data=%s", (inspireID,))
 
+dupl = 0
+def mock_add():
+    global dupl
+    print "yooooooo",dupl
+    dupl += 1
+    print "yaaaaaaa",dupl
+
 class BibAuthorIDHooverTestCase(TestCase):
 
     run_exec = False
@@ -58,6 +66,7 @@ class BibAuthorIDHooverTestCase(TestCase):
         cls.logger = setup_loggers()
         cls.logger.info('Setting up regression tests...')
         task_set_task_param('verbose', cls.verbose)
+
 
         cls.authors = {  'author1': {
                                         'name': 'authoraaaaa authoraaaab',
@@ -271,7 +280,25 @@ class BibAuthorIDHooverTestCase(TestCase):
         claim_test_paper(cls.bibrecs['paper14'])
         claim_test_paper(cls.bibrecs['paper18'])
         print list(set(cls.pids[key] for key in cls.pids))
+        print "dupl", dupl
+        #DuplicateClaimedPaperException = Mock(side_effect=mock_add)
+
+        tmp_exception = invenio.bibauthorid_hoover.DuplicateClaimedPaperException
+        class MockException(invenio.bibauthorid_hoover.DuplicateClaimedPaperException):
+
+            def __init__(self, message, pid, signature, present_signatures):
+                global dupl
+                Exception.__init__(self, message)
+                self.pid = pid
+                self.signature = signature
+                self.present_signatures = present_signatures
+                dupl += 1
+
+        invenio.bibauthorid_hoover.DuplicateClaimedPaperException = MockException
+        #with patch('invenio.bibauthorid_hoover.DuplicateClaimedPaperException') as DuplicateClaimedPaperException:
         hoover(list(set(cls.pids[key] for key in cls.pids if cls.pids[key])))
+        invenio.bibauthorid_hoover.DuplicateClaimedPaperException = tmp_exception
+        print "dupl", dupl
 
 
     @classmethod
@@ -545,7 +572,7 @@ class DuplicatedSignaturesTestCase(BibAuthorIDHooverTestCase):
 
     def test_duplicated_signatures(self):
         def duplicated_claimed_signature(self):
-            pass
+            self.assertEquals(dupl, 1)
 
         def duplicated_unclaimed_signature(self):
             pass
