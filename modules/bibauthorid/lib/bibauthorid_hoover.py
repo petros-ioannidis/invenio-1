@@ -54,10 +54,10 @@ class HooverException(Exception):
         pass
 
     def get_message_body(self):
-        raise NotImplemented()
+        raise NotImplementedError(self.__repr__())
 
     def get_message_subject(self):
-        raise NotImplemented
+        raise NotImplementedError(self.__repr__())
 
 class ConflictingIdsException(HooverException):
 
