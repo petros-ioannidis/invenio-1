@@ -377,9 +377,11 @@ def connect_hepnames_to_inspireID(pid, inspireID):
     inspireID -- the inspireID of the author
     """
     author_canonical_name = get_canonical_name_of_author(pid)
-    # this should change
-    # to an exception
-    assert author_canonical_name
+
+    if not author_canonical_name:
+        #TODO: signal that something is wrong instead of just ignoring. Ignoring is safe for the moment.
+        return None
+
     recid = perform_request_search(p="035:" + inspireID, cc="HepNames")
     if recid:
         if len(recid) > 1:
