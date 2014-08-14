@@ -252,6 +252,22 @@ def try_url_download(url):
     return True
 
 
+def force_webcoll(recid):
+    from invenio.bibindex_engine_config import CFG_BIBINDEX_INDEX_TABLE_TYPE
+    from invenio import bibindex_engine
+    from invenio import websearch_webcoll
+    ## Reset the collection global cache
+    websearch_webcoll.COLLECTION_HOUSE = {}
+    bibindex_engine.WordTable("collection",
+                              table_type=CFG_BIBINDEX_INDEX_TABLE_TYPE["Words"]
+                             ).add_recIDs([[recid, recid]], 1)
+    #sleep 1s to make sure all tables are ready
+    time.sleep(1)
+    c = websearch_webcoll.Collection()
+    c.calculate_reclist()
+    c.update_reclist()
+
+
 class GenericBibUploadTest(InvenioTestCase):
     """Generic BibUpload testing class with predefined
     setUp and tearDown methods.
@@ -273,19 +289,7 @@ class GenericBibUploadTest(InvenioTestCase):
 
     def force_webcoll(self, recid):
         self.webcolled_recids.append(recid)
-        from invenio.bibindex_engine_config import CFG_BIBINDEX_INDEX_TABLE_TYPE
-        from invenio import bibindex_engine
-        from invenio import websearch_webcoll
-        ## Reset the collection global cache
-        websearch_webcoll.COLLECTION_HOUSE = {}
-        bibindex_engine.WordTable("collection",
-                                  table_type=CFG_BIBINDEX_INDEX_TABLE_TYPE["Words"]
-                                 ).add_recIDs([[recid, recid]], 1)
-        #sleep 1s to make sure all tables are ready
-        time.sleep(1)
-        c = websearch_webcoll.Collection()
-        c.calculate_reclist()
-        c.update_reclist()
+        force_webcoll(recid)
 
     def check_record_consistency(self, recid):
         rec_in_history = create_record(decompress(run_sql("SELECT marcxml FROM hstRECORD WHERE id_bibrec=%s ORDER BY job_date DESC LIMIT 1", (recid, ))[0][0]))[0]
