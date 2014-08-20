@@ -1,6 +1,7 @@
 from unittest import *
 from mock import *
 import os
+from sys import exit
 
 from invenio.testutils import make_test_suite
 from invenio.testutils import run_test_suite
@@ -11,7 +12,7 @@ from invenio.bibtask import setup_loggers
 from invenio.bibtask import task_set_task_param
 from invenio.bibtask import task_low_level_submission
 
-from invenio.bibupload_regression_tests import wipe_out_record_from_all_tables
+from invenio.bibupload_regression_tests import wipe_out_record_from_all_tables, force_webcoll
 from invenio.dbquery import run_sql
 
 import invenio.bibauthorid_rabbit
@@ -25,6 +26,10 @@ from invenio.bibauthorid_dbinterface import _delete_from_aidpersonidpapers_where
 from invenio.bibauthorid_dbinterface import get_papers_of_author
 
 from invenio.search_engine import get_record
+
+from invenio.bibindex_regression_tests import reindex_for_type_with_bibsched
+
+from invenio.config import CFG_BINDIR
 
 def index_hepnames_authors():
     """runs bibindex for the index '_type' and returns the task_id"""
@@ -40,6 +45,7 @@ def clean_up_the_database(inspireID):
         run_sql("delete from aidPERSONIDDATA where data=%s", (inspireID,))
 
 dupl = 0
+pid = -1
 def mock_add():
     global dupl
     print "yooooooo",dupl
@@ -283,8 +289,17 @@ class BibAuthorIDHooverTestCase(TestCase):
         print "dupl", dupl
         #DuplicateClaimedPaperException = Mock(side_effect=mock_add)
 
-        tmp_exception = invenio.bibauthorid_hoover.DuplicateClaimedPaperException
-        class MockException(invenio.bibauthorid_hoover.DuplicateClaimedPaperException):
+        #task_id = reindex_for_type_with_bibsched("collection")
+        #print "task_id", task_id
+        #task_id = reindex_for_type_with_bibsched("author")
+        #program = os.path.join(CFG_BINDIR, 'bibindex')
+        #COMMAND = "%s %s" % (program, str(task_id))
+        #print COMMAND
+        #os.system(COMMAND)
+
+        tmp_claimed_exception = invenio.bibauthorid_hoover.DuplicateClaimedPaperException
+        tmp_unclaimed_exception = invenio.bibauthorid_hoover.DuplicateUnclaimedPaperException
+        class MockClaimedException(invenio.bibauthorid_hoover.DuplicateClaimedPaperException):
 
             def __init__(self, message, pid, signature, present_signatures):
                 global dupl
@@ -294,10 +309,37 @@ class BibAuthorIDHooverTestCase(TestCase):
                 self.present_signatures = present_signatures
                 dupl += 1
 
-        invenio.bibauthorid_hoover.DuplicateClaimedPaperException = MockException
-        #with patch('invenio.bibauthorid_hoover.DuplicateClaimedPaperException') as DuplicateClaimedPaperException:
+        class MockUnclaimedException(invenio.bibauthorid_hoover.DuplicateUnclaimedPaperException):
+
+            def __init__(self, message, _pid, signature, present_signatures):
+                global pid
+                Exception.__init__(self, message)
+                pid = _pid
+                
+        #params = ('webcoll','admin')
+        
+        #task_low_level_submission(*params)
+
+        #program = os.path.join(CFG_BINDIR, 'bibindex')
+        #args = ['bibindex', 'hoover_regression_tests', '-w', 'collection', '-u', 'admin']
+        #args.append("--force")
+        #task_id = task_low_level_submission(*args)
+        #COMMAND = "%s %s" % (program, str(task_id))
+        #os.system(COMMAND)
+
+        #raw_input()
+        #force_webcoll(cls.bibrecs['paper15'])
+        print "pids"
+        print cls.pids
+        print "bibrecs"
+        print cls.bibrecs
+        #raw_input()
+
+        invenio.bibauthorid_hoover.DuplicateClaimedPaperException = MockClaimedException
+        invenio.bibauthorid_hoover.DuplicateUnclaimedPaperException = MockUnclaimedException
         hoover(list(set(cls.pids[key] for key in cls.pids if cls.pids[key])))
-        invenio.bibauthorid_hoover.DuplicateClaimedPaperException = tmp_exception
+        invenio.bibauthorid_hoover.DuplicateClaimedPaperException = tmp_claimed_exception
+        invenio.bibauthorid_hoover.DuplicateUnclaimedPaperException = tmp_unclaimed_exception
         print "dupl", dupl
 
 
@@ -306,23 +348,6 @@ class BibAuthorIDHooverTestCase(TestCase):
 
         # All records are wiped out for consistency.
         print "I am cleaning"
-#        clean_up_the_database(cls.authors['author1']['inspireID'])
-#        clean_up_the_database(cls.authors['author2']['inspireID'])
-#        clean_up_the_database(cls.authors['author3']['inspireID'])
-#        clean_up_the_database(cls.authors['author4']['inspireID'])
-#        clean_up_the_database(cls.authors['author5']['inspireID'])
-#        clean_up_the_database(cls.authors['author6']['inspireID'])
-#        clean_up_the_database(cls.authors['author7']['inspireID'])
-#        clean_up_the_database(cls.authors['author8']['inspireID'])
-#        clean_up_the_database(cls.authors['author9']['inspireID'])
-#        clean_up_the_database(cls.authors['author10']['inspireID'])
-#        clean_up_the_database(cls.authors['author11']['inspireID'])
-#        clean_up_the_database(cls.authors['author12']['inspireID'])
-#        clean_up_the_database(cls.authors['author13']['inspireID'])
-#        clean_up_the_database(cls.authors['author14']['inspireID'])
-#        clean_up_the_database(cls.authors['author15']['inspireID'])
-#        clean_up_the_database(cls.authors['author15']['inspireID'])
-#        clean_up_the_database(cls.authors['author15']['inspireID'])
         for key in cls.authors:
             clean_up_the_database(cls.authors[key]['inspireID'])
         
@@ -557,9 +582,13 @@ class HepnamesHooverTestCase(BibAuthorIDHooverTestCase):
 
     def test_hepnames(self):
         def test_hoover_assign_one_inspire_id_from_hepnames_record():
+            print "pid"
+            print BibAuthorIDHooverTestCase.pids['author15']
             inspireID = get_inspire_id_of_author(BibAuthorIDHooverTestCase.pids['author15'])
             print "InspireID", BibAuthorIDHooverTestCase.authors['author15']['inspireID']
             self.assertEquals(inspireID, BibAuthorIDHooverTestCase.authors['author15']['inspireID'])
+
+        test_hoover_assign_one_inspire_id_from_hepnames_record()
 
 class DuplicatedSignaturesTestCase(BibAuthorIDHooverTestCase):
     @classmethod
@@ -571,18 +600,23 @@ class DuplicatedSignaturesTestCase(BibAuthorIDHooverTestCase):
         pass
 
     def test_duplicated_signatures(self):
-        def duplicated_claimed_signature(self):
+        def duplicated_claimed_signature():
             self.assertEquals(dupl, 1)
 
-        def duplicated_unclaimed_signature(self):
-            pass
+        def duplicated_unclaimed_signature():
+            print "new_pid", pid
+            inspireID = get_inspire_id_of_author(pid)
+            print "ID", inspireID
+            author_papers = get_papers_of_author(pid)
+            self.assertEquals(len(author_papers), 1)
+            print author_papers
 
-        duplicated_claimed_signature(self)
-        duplicated_unclaimed_signature(self)
+        duplicated_claimed_signature()
+        duplicated_unclaimed_signature()
 
 
-TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase, DuplicatedSignaturesTestCase)
-#TEST_SUITE = make_test_suite(HepnamesHooverTestCase)
+TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase, HepnamesHooverTestCase, DuplicatedSignaturesTestCase)
+#TEST_SUITE = make_test_suite()
 #TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase)
 
 

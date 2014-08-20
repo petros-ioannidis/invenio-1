@@ -330,10 +330,8 @@ def _get_signatures_with_tag_value_cache(value, tag_ending):
 def get_signatures_with_inspireID_cache(inspireID):
     return _get_signatures_with_tag_value_cache(inspireID, '__i')
 
-
 def get_signatures_with_orcid_cache(orcid):
     return _get_signatures_with_tag_value_cache(orcid, '__j')
-
 
 def get_all_recids_in_hepnames():
     return  set(perform_request_search(p='', cc='HepNames', rg=0))
@@ -529,7 +527,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
 
 
 @timed
-def hoover(authors=None):
+def hoover(authors=None, check_db_consistency=False):
     """Long description"""
 
     logger.log("Selecting records with identifiers...")
@@ -542,11 +540,9 @@ def hoover(authors=None):
     logger.log("   out of owhich %s are in BibAuthorID" % len(recs))
 
     records_with_id = set(rec[0] for rec in recs)
-    # records_with_id = [rec[0] for rec in set(recs)]
 
     destroy_partial_marc_caches()
     populate_partial_marc_caches(records_with_id, create_inverted_dicts=True)
-    # same_ids = {}
     fdict_id_getters = {
         "INSPIREID": {
             'reliable': [get_inspire_id_of_author,
@@ -602,7 +598,15 @@ def hoover(authors=None):
             G = (func(pid) for func in functions['reliable'])
 
             try:
-                res = next((func for func in G if func), None)
+                if check_db_consistency:
+                    results = filter(None, (func for func in G if func))
+                    consistent_db = reduce(lambda x,y: x == y, results)
+                    try:
+                        res = results[0]
+                    except IndexError:
+                        res = None
+                else:
+                    res = next((func for func in G if func), None)
             except ConflictingIdsFromReliableSourceException as e:
                 open_rt_ticket(e)
                 continue

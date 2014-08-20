@@ -241,7 +241,7 @@ def get_new_hepnames_marc_for_test(author_name=None, identifiers=None):
             subfields += tup_ids
             #print subfields
         print subfields
-        build_test_marcxml_field_new(record, 035, subfields)
+        build_test_marcxml_field_new(record, '035', subfields)
     return tostring(record)
 
 def add_001_field(marcxml_string, recid):
