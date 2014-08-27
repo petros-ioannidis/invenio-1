@@ -653,6 +653,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False):
                 if check_db_consistency:
                     results = filter(None, (func for func in G if func))
                     try:
+                        #check if this is reduntant
                         if len(results) == 1:
                             consistent_db = True
                         else:
@@ -772,4 +773,4 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False):
     logger.log("Terminating hoover")
 
 if __name__ == "__main__":
-    hoover()
+    hoover(check_db_consistency=True)

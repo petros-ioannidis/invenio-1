@@ -2272,8 +2272,8 @@ def get_inspire_id_of_author(pid):   ### get_inspire_ids_by_pids
     ##WRONG exception here
     if result:
         if len(result) > 1:
-            from bibauthorid_hoover import NonUniqueIdentifiersException
-            raise NonUniqueIdentifiersException('Non unique identifier', result, 'INSPIREID', identifier)
+            from bibauthorid_hoover import InconsistentIdentifiersException
+            raise InconsistentIdentifiersException('Inconsistent identifier', pid, 'INSPIREID', result)
         return result[0][0]
     return tuple()
 
@@ -2289,9 +2289,9 @@ def get_orcid_id_of_author(pid):  # get_orcids_by_pids
     '''
     result = _select_from_aidpersoniddata_where(select=['data'], pid=pid, tag='extid:ORCID')
     if result:
-        if len(result) > 1:
-            from bibauthorid_hoover import NonUniqueIdentifiersException
-            raise NonUniqueIdentifiersException('Non unique identifier', result, 'ORCID', identifier)
+        #if len(result) > 1:
+            #from bibauthorid_hoover import NonUniqueIdentifiersException
+            #raise NonUniqueIdentifiersException('Non unique identifier', result, 'ORCID', identifier)
         return result[0][0]
     return tuple()
 
