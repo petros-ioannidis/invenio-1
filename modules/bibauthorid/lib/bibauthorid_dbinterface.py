@@ -2272,8 +2272,8 @@ def get_inspire_id_of_author(pid):   ### get_inspire_ids_by_pids
     ##WRONG exception here
     if result:
         if len(result) > 1:
-            from bibauthorid_hoover import InconsistentIdentifiersException
-            raise InconsistentIdentifiersException('Inconsistent identifier', pid, 'INSPIREID', result)
+            import bibauthorid_hoover.MultipleIdsOnSingleAuthorException
+            raise bibauthorid_hoover.MultipleIdsOnSingleAuthorException('Conflict in aidPERSONIDDATA', pid, 'INSPIREID', result)
         return result[0][0]
     return tuple()
 
