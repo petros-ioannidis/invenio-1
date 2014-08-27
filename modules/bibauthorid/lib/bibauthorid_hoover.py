@@ -189,7 +189,7 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
         sig_name = get_name_by_bibref(self.signature[0:2])
         p_sigs = [(x,get_name_by_bibref(x[0:2])) for x in self.present_signatures]
 
-        p_sig_strings = ",".join( '%s (%s on record %s)' % (x[0],x[1],x[1][2]) for x in p_sigs)
+        p_sig_strings = ",".join( '%s (%s on record %s)' % (x[0],x[1],x[0][2]) for x in p_sigs)
 
         msg.append("want to move %s (%s on record %s) to this profile but [%s] are already present and claimed" %
                     (self.signature, sig_name, self.signature[2], p_sig_strings))
@@ -222,7 +222,7 @@ class BrokenHepNamesRecordException(HooverException):
 
     def get_message_body(self):
         msg = ['Found broken hepnames record http://inspirehep.net/record/%s' % self.recid]
-        msg.append('Something went wroing while trying to read the %s identifier' % self.identifier_type)
+        msg.append('Something went wrong while trying to read the %s identifier' % self.identifier_type)
         return '\n'.join(msg)
 
 class MultipleHepnamesRecordsWithSameIdException(HooverException):
@@ -517,7 +517,11 @@ def get_inspireID_from_claimed_papers(pid, intersection_set=None):
     for sig in claimed_paper_signatures:
         inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
-            assert(len(inspireID) == 1)
+
+            if len(inspireID) > 1:
+                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids fourd', pid, 'INSPIREID', inspireID, sig[2]))
+                return None
+
             inspireID_list.append(inspireID[0])
 
     try:
@@ -734,7 +738,9 @@ def hoover(authors=None, check_db_consistency=False):
                 if res is None:
                     continue
             except ConflictingIdsFromUnreliableSourceException as e:
-                open_rt_ticket(e)
+                # For the beginning, we want to ignore this (it would open a lot of tickets which are almost impossible to
+                # fix manually)
+                # open_rt_ticket(e)
                 continue
             except BrokenHepNamesRecordException as e:
                 B
