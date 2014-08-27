@@ -77,7 +77,7 @@ def get_bibrec_for_record(marcxml, opt_mode):
     A record is uploaded to the system using mainly functionality
     of the bibupload module. Then a bibrec is returned for the record.
     '''
-    recs = create_record(marcxml)
+    recs = create_record(marcxml, parser='lxml')
     _, recid, _ = bibupload(recs[0], opt_mode=opt_mode)
     return recid
 
@@ -242,7 +242,7 @@ def get_new_hepnames_marc_for_test(author_name=None, identifiers=None):
             #print subfields
         print subfields
         build_test_marcxml_field_new(record, '035', subfields)
-    return tostring(record)
+    return "<collection>" + tostring(record) + "</collection>"
 
 def add_001_field(marcxml_string, recid):
     marcxml = fromstring(marcxml_string)

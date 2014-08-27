@@ -2271,6 +2271,9 @@ def get_inspire_id_of_author(pid):   ### get_inspire_ids_by_pids
     result =  _select_from_aidpersoniddata_where(select=['data'], pid=pid, tag='extid:INSPIREID')
     ##WRONG exception here
     if result:
+        if len(result) > 1:
+            from bibauthorid_hoover import NonUniqueIdentifiersException
+            raise NonUniqueIdentifiersException('Non unique identifier', result, 'INSPIREID', identifier)
         return result[0][0]
     return tuple()
 
@@ -2286,6 +2289,9 @@ def get_orcid_id_of_author(pid):  # get_orcids_by_pids
     '''
     result = _select_from_aidpersoniddata_where(select=['data'], pid=pid, tag='extid:ORCID')
     if result:
+        if len(result) > 1:
+            from bibauthorid_hoover import NonUniqueIdentifiersException
+            raise NonUniqueIdentifiersException('Non unique identifier', result, 'ORCID', identifier)
         return result[0][0]
     return tuple()
 
@@ -2454,6 +2460,7 @@ def remove_empty_authors(remove=True):  # delete_empty_persons
     pids_with_papers = set(pid[0] for pid in pids)
     pids_tags = _select_from_aidpersoniddata_where(select=['personid', 'tag'])
     pids_with_data = set(pid for pid, tag in pids_tags)
+    #if a pid has another tag besides canonical name
     not_empty_pids = set(pid for pid, tag in pids_tags if tag not in bconfig.NON_EMPTY_PERSON_TAGS)
 
     empty_pids = pids_with_data - (pids_with_papers | not_empty_pids)

@@ -37,8 +37,6 @@ def open_rt_ticket(e):
                                         queue=queue, priority="", owner="", requestor="")
     else:
         logger.log('sub: '+subject+'\nbody:\n'+body+'\ndbg:\n'+debug)
-
-
 def timed(func):
     def print_time(*args, **kwds):
         t0 = time()
@@ -58,6 +56,43 @@ class HooverException(Exception):
 
     def get_message_subject(self):
         raise NotImplementedError(self.__repr__())
+
+class NonUniqueIdentifiersException(HooverException):
+    """Exception Class for the case of non unique reliable identifiers in the
+    database
+    """
+    def __init__(self, message, pids, identifier_type, identifier):
+        Exception.__init__(self, message)
+        self.pids = pids
+        self.identifier_type = identifier_type
+        self.identifier = identifier
+
+    def get_message_subject(self):
+        return '[Hoover] Identifier found with multiple authors connected'
+
+    def get_message_body(self):
+        msg = ["Found identifier %s with value (%s) on profiles: " % (self.identifier_type, self.identifier)]
+        for pid in self.pids:
+            msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(pid) )
+        return '\n'.join(msg)
+
+class InconsistentIdentifiersException(HooverException):
+    """Exception Class for the case of different reliable identifiers in the
+    database
+    """
+    def __init__(self, message, pid, identifier_type, ids_list):
+        Exception.__init__(self, message)
+        self.pid = pid
+        self.identifier_type = identifier_type
+        self.ids_list = ids_list
+
+    def get_message_subject(self):
+        return '[Hoover] Author found with multiple identifiers of the same kind'
+
+    def get_message_body(self):
+        msg = ["Found multiple different %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
+        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
+        return '\n'.join(msg)
 
 class ConflictingIdsOnRecordException(HooverException):
 
@@ -352,17 +387,24 @@ def get_inspireID_from_hepnames(pid):
         recid = list(recid & hepnames_recids)
 
         if len(recid)>1:
-            #raise Exception('TODO: more then one hepname with same BAI exception')
-            return None
+            raise MultipleHepnamesRecordsWithSameIdException(
+                "More than one hepnames record found with the same inspire id",
+                recid,
+                'INSPIREID')
 
         hepname_record = get_record(recid[0])
         fields_dict = [dict(x[0]) for x in hepname_record['035']]
+        inspire_ids = []
         for d in fields_dict:
             if '9' in d and d['9'] == 'INSPIRE':
                 try:
-                    return d['a']
+                    inspire_ids.append(d['a'])
                 except KeyError:
                     raise BrokenHepNamesRecordException("Broken HepNames record", recid[0], 'INSPIREID')
+        if len(inspire_ids) > 1:
+            raise BrokenHepNamesRecordException("Broken HepNames record", recid[0], 'INSPIREID')
+        else:
+            return inspire_ids[0]
     except IndexError:
         return None
     except KeyError:
@@ -419,8 +461,6 @@ class Vacuumer(object):
                 new_pid = get_free_author_id()
                 logger.log("Moving  conflicting signature ", duplicated_signatures[0], " from pid ", self.pid, " to pid ", new_pid)
                 move_signature(duplicated_signatures[0], new_pid)
-                # should or shouldn't
-                # check after
                 move_signature(signature, self.pid)
                 after_vacuum = (sig[1:4] for sig in get_papers_of_author(self.pid))
 
@@ -512,7 +552,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
         if inspireID:
 
             if len(inspireID) > 1:
-                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids fourd', pid, 'INSPIREID', inspireID, sig[2]))
+                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids found', pid, 'INSPIREID', inspireID, sig[2]))
                 return None
 
             inspireID_list.append(inspireID[0])
@@ -528,8 +568,16 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
 
 @timed
 def hoover(authors=None, check_db_consistency=False):
-    """Long description"""
+    """The actions that hoover performs are the following:
+    1. Find out the identifiers that belong to the authors(pids) in the database
+    2. Find and pull all the signatures that have the same identifier as the author to the author
+    3. Connect the profile of the author with the hepnames collection entry
+    (optional). check the database to see if it is in a consistent state
+    authors -- an iterable of authors to be hoovered
+    check_db_consistency -- perform checks for the consistency of th database
+    """
 
+    logger.log("Initializing hoover")
     logger.log("Selecting records with identifiers...")
     recs = get_records_with_tag('100__i')
     recs += get_records_with_tag('100__j')
@@ -548,7 +596,7 @@ def hoover(authors=None, check_db_consistency=False):
             'reliable': [get_inspire_id_of_author,
                          get_inspireID_from_hepnames,
                          lambda pid: get_inspireID_from_claimed_papers(
-                         pid, intersection_set=records_with_id), ],
+                         pid, intersection_set=records_with_id)],
 
             'unreliable':
             [lambda pid: get_inspireID_from_unclaimed_papers(
@@ -596,23 +644,34 @@ def hoover(authors=None, check_db_consistency=False):
             logger.log("    Type: %s" % identifier_type)
 
             G = (func(pid) for func in functions['reliable'])
-
             try:
                 if check_db_consistency:
                     results = filter(None, (func for func in G if func))
-                    consistent_db = reduce(lambda x,y: x == y, results)
                     try:
+                        if len(results) == 1:
+                            consistent_db = True
+                        else:
+                            consistent_db = len(set(results)) <= 1
                         res = results[0]
                     except IndexError:
                         res = None
+                    else:
+                        if consistent_db == False:
+                            res = None
+                            raise InconsistentIdentifiersException('Inconsistent database', pid, identifier_type, results)
                 else:
                     res = next((func for func in G if func), None)
             except ConflictingIdsFromReliableSourceException as e:
                 open_rt_ticket(e)
-                continue
             except BrokenHepNamesRecordException as e:
                 open_rt_ticket(e)
-                continue
+            except InconsistentIdentifiersException as e:
+                open_rt_ticket(e)
+            except NonUniqueIdentifiersException as e:
+                if check_db_consistency:
+                    open_rt_ticket(e)
+                else:
+                    pass
             else:
                 if res:
                     logger.log("   Found reliable id ", res)
@@ -665,23 +724,20 @@ def hoover(authors=None, check_db_consistency=False):
             logger.log("   Done with ", pid)
 
     logger.log("Vacuuming unreliable ids...")
-    print "unclaimed_authors"
-    print unclaimed_authors['INSPIREID']
 
     for identifier_type, functions in fdict_id_getters.iteritems():
         for index, pid in enumerate(unclaimed_authors[identifier_type]):
-            logger.log("Searching for urreliable ids of person %s" % pid)
+            logger.log("Searching for unreliable ids of person %s" % pid)
             G = (func(pid) for func in functions['unreliable'])
             try:
                 res = next((func for func in G if func), None)
-
                 if res is None:
                     continue
-
             except ConflictingIdsFromUnreliableSourceException as e:
                 open_rt_ticket(e)
                 continue
             except BrokenHepNamesRecordException as e:
+                B
                 open_rt_ticket(e)
                 continue
 
@@ -693,7 +749,6 @@ def hoover(authors=None, check_db_consistency=False):
 
             rowenta = Vacuumer(pid)
             signatures = functions['signatures_getter'](res)
-
             for sig in signatures:
                 try:
                     rowenta.vacuum_signature(sig)
@@ -706,8 +761,7 @@ def hoover(authors=None, check_db_consistency=False):
             add_external_id_to_author(pid, identifier_type, res)
             fdict_id_getters[identifier_type]['connection'](pid, res)
             logger.log("   Done with ", pid)
+    logger.log("Terminating hoover")
 
 if __name__ == "__main__":
-    logger.log("Initializing hoover")
     hoover()
-    logger.log("Terminating hoover")

@@ -230,6 +230,7 @@ class BibAuthorIDHooverTestCase(TestCase):
 
         def set_up_test_hoover_assign_one_inspire_id_from_hepnames_record():
             cls.marc_xmls['paper15'] = get_new_hepnames_marc_for_test(cls.authors['author15']['name'], ((cls.authors['author15']['inspireID'], 'i'),))
+            print cls.marc_xmls['paper15']
 
             cls.bibrecs['paper15'] = get_bibrec_for_record(cls.marc_xmls['paper15'], opt_mode='insert')
             cls.marc_xmls['paper15'] = add_001_field(cls.marc_xmls['paper15'], cls.bibrecs['paper15'])
@@ -262,7 +263,8 @@ class BibAuthorIDHooverTestCase(TestCase):
         set_up_duplicated_claimed_signature()
 
         cls.bibrecs_to_clean = [cls.bibrecs[key] for key in cls.bibrecs]
-        rabbit([cls.bibrecs[key] for key in cls.bibrecs], verbose=False)
+        print cls.bibrecs
+        rabbit(sorted([cls.bibrecs[key] for key in cls.bibrecs]), verbose=False)
         print cls.bibrecs
 
         for key in cls.authors:
@@ -320,20 +322,20 @@ class BibAuthorIDHooverTestCase(TestCase):
         
         #task_low_level_submission(*params)
 
-        #program = os.path.join(CFG_BINDIR, 'bibindex')
-        #args = ['bibindex', 'hoover_regression_tests', '-w', 'collection', '-u', 'admin']
-        #args.append("--force")
-        #task_id = task_low_level_submission(*args)
+        program = os.path.join(CFG_BINDIR, 'bibindex')
+        args = ['bibindex', 'hoover_regression_tests', '-w', 'collection', '-u', 'admin']
+        args.append("--force")
+        task_id = task_low_level_submission(*args)
         #COMMAND = "%s %s" % (program, str(task_id))
         #os.system(COMMAND)
 
-        #raw_input()
-        #force_webcoll(cls.bibrecs['paper15'])
+        raw_input()
+        force_webcoll(cls.bibrecs['paper15'])
         print "pids"
         print cls.pids
         print "bibrecs"
         print cls.bibrecs
-        #raw_input()
+        raw_input()
 
         invenio.bibauthorid_hoover.DuplicateClaimedPaperException = MockClaimedException
         invenio.bibauthorid_hoover.DuplicateUnclaimedPaperException = MockUnclaimedException
@@ -616,9 +618,6 @@ class DuplicatedSignaturesTestCase(BibAuthorIDHooverTestCase):
 
 
 TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase, HepnamesHooverTestCase, DuplicatedSignaturesTestCase)
-#TEST_SUITE = make_test_suite()
-#TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase)
-
 
 if __name__ == "__main__":
     run_test_suite(TEST_SUITE, warn_user=False)
