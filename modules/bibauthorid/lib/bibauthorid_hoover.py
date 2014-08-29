@@ -18,7 +18,7 @@ import invenio.bibauthorid_dbinterface as db
 import invenio.bibauthorid_config as bconfig
 from invenio.bibauthorid_webapi import get_hepnames, add_cname_to_hepname_record
 from invenio.bibcatalog import BIBCATALOG_SYSTEM
-from bibauthorid_hoover_exceptions import *
+from invenio.bibauthorid_hoover_exceptions import *
 
 logger = Logger('Hoover')
 
@@ -51,51 +51,51 @@ def timed(func):
 #==================================================================================================================#
 #==================================================================================================================#
 
-class ConflictingIdsException(HooverException):
-    """Base class for conflicting ids in authors"""
-
-    def __init__(self, message, pid, identifier_type, ids_list):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        pid -- the pid of the author that caused the exception
-        identifier -- the type of the identifier that caused the exception
-        """
-        Exception.__init__(self, message)
-        self.pid = pid
-        self.identifier_type = identifier_type
-        self.ids_list = ids_list
-
-    """Class for conflicting ids in authors that are caused from reliable sources"""
-    def get_message_subject(self):
-        return "[Hoover] Conflicting identifiers in user verified data"
-
-    def get_message_body(self):
-        msg = ["Found conflicting %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
-        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
-        msg.append(msg)
-        return '\n'.join(msg)
-
-class NonUniqueIdentifiersException(HooverException):
-    """Exception Class for the case of non unique reliable identifiers in the
-    database
-    """
-    def __init__(self, message, pids, identifier_type, identifier):
-        Exception.__init__(self, message)
-        self.pids = pids
-        self.identifier_type = identifier_type
-        self.identifier = identifier
-
-    def get_message_subject(self):
-        return '[Hoover] Identifier found with multiple authors connected'
-
-    def get_message_body(self):
-        msg = ["Found identifier %s with value (%s) on profiles: " % (self.identifier_type, self.identifier)]
-        for pid in self.pids:
-            msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(pid) )
-        return '\n'.join(msg)
-
+#class ConflictingIdsException(HooverException):
+#    """Base class for conflicting ids in authors"""
+#
+#    def __init__(self, message, pid, identifier_type, ids_list):
+#        """Set up the exception class
+#
+#        arguments:
+#        message -- the message to be displayed when the exceptions is raised
+#        pid -- the pid of the author that caused the exception
+#        identifier -- the type of the identifier that caused the exception
+#        """
+#        Exception.__init__(self, message)
+#        self.pid = pid
+#        self.identifier_type = identifier_type
+#        self.ids_list = ids_list
+#
+#    """Class for conflicting ids in authors that are caused from reliable sources"""
+#    def get_message_subject(self):
+#        return "[Hoover] Conflicting identifiers in user verified data"
+#
+#    def get_message_body(self):
+#        msg = ["Found conflicting %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
+#        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
+#        msg.append(msg)
+#        return '\n'.join(msg)
+#
+#class NonUniqueIdentifiersException(HooverException):
+#    """Exception Class for the case of non unique reliable identifiers in the
+#    database
+#    """
+#    def __init__(self, message, pids, identifier_type, identifier):
+#        Exception.__init__(self, message)
+#        self.pids = pids
+#        self.identifier_type = identifier_type
+#        self.identifier = identifier
+#
+#    def get_message_subject(self):
+#        return '[Hoover] Identifier found with multiple authors connected'
+#
+#    def get_message_body(self):
+#        msg = ["Found identifier %s with value (%s) on profiles: " % (self.identifier_type, self.identifier)]
+#        for pid in self.pids:
+#            msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(pid) )
+#        return '\n'.join(msg)
+#
 def get_signatures_with_inspireID_sql(inspireID):
     """Signatures of specific inspireID using an Sql query"""
     signatures = run_sql("SELECT 100, secondbib.id, firstbibrec.id_bibrec \
