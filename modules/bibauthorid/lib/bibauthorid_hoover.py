@@ -444,6 +444,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
                 open_rt_ticket(e)
             except InconsistentIdentifiersException as e:
                 open_rt_ticket(e)
+            except MultipleHepnamesRecordsWithSameIdException as e:
+                open_rt_ticket(e)
             else:
                 if res:
                     logger.log("   Found reliable id ", res)
@@ -495,6 +497,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
                 open_rt_ticket(e)
             except MultipleIdsOnSingleAuthorException as e:
                 open_rt_ticket(e)
+            except MultipleHepnamesRecordsWithSameIdException as e:
+                open_rt_ticket(e)
             logger.log("   Done with ", pid)
 
     logger.log("Vacuuming unreliable ids...")
@@ -515,6 +519,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
             except BrokenHepNamesRecordException as e:
                 open_rt_ticket(e)
                 continue
+            except MultipleHepnamesRecordsWithSameIdException as e:
+                open_rt_ticket(e)
 
             logger.log("   Person %s has unreliable identifier %s " % (str(pid),str(res)))
 
