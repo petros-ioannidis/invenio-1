@@ -206,7 +206,7 @@ def connect_hepnames_to_inspireID(pid, inspireID):
                 recid,
                 'INSPIREID')
         logger.log("Connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID)
-        add_cname_to_hepname_record(author_canonical_name, recid)
+        add_cname_to_hepname_record(author_canonical_name, recid[0])
 
 
 class Vacuumer(object):
