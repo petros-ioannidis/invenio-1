@@ -25,6 +25,7 @@ import os
 from itertools import chain
 from copy import deepcopy
 from collections import defaultdict
+import datetime
 
 import invenio.bibauthorid_config as bconfig
 import invenio.bibauthorid_frontinterface as dbapi
@@ -3246,7 +3247,7 @@ def add_cname_to_hepname_record(cname_dict, uid=None):
     """
     Schedule a BibUpload that will append the given personid to the specified record.
     """
-    tmp_file_fd, tmp_file_name = retry_mkstemp(suffix='.xml', prefix="bibauthorid-%s" % recid)
+    tmp_file_fd, tmp_file_name = retry_mkstemp(suffix='.xml', prefix="bibauthorid-hepnames-%s" % datetime.datetime.now().isoformat())
     tmp_file = os.fdopen(tmp_file_fd, "w")
     for cname, recid in cname_dict.iteritems():
         rec = {}
