@@ -3242,22 +3242,24 @@ def get_stored_incomplete_autoclaim_tickets(req):
     return temp_storage
 
 
-def add_cname_to_hepname_record(cname, recid, uid=None):
+def add_cname_to_hepname_record(cname_dict, uid=None):
     """
     Schedule a BibUpload that will append the given personid to the specified record.
     """
-    rec = {}
-    record_add_field(rec, '001', controlfield_value=str(recid))
-    record_add_field(rec,
-                     tag=CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[:3],
-                     ind1=CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[3:4],
-                     ind2=CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[4:5],
-                     subfields=[
-                     (CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[5:6], str(cname)),
-                     (CFG_BIBUPLOAD_EXTERNAL_OAIID_PROVENANCE_TAG[5:6], 'BAI')])
     tmp_file_fd, tmp_file_name = retry_mkstemp(suffix='.xml', prefix="bibauthorid-%s" % recid)
     tmp_file = os.fdopen(tmp_file_fd, "w")
-    tmp_file.write(record_xml_output(rec))
+    for cname, recid in cname_dict.iteritems():
+        rec = {}
+        record_add_field(rec, '001', controlfield_value=str(recid))
+        record_add_field(rec,
+                        tag=CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[:3],
+                        ind1=CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[3:4],
+                        ind2=CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[4:5],
+                        subfields=[
+                        (CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[5:6], str(cname)),
+                        (CFG_BIBUPLOAD_EXTERNAL_OAIID_PROVENANCE_TAG[5:6], 'BAI')])
+        tmp_file.write(record_xml_output(rec))
+        print record_xml_output(rec)
     tmp_file.close()
     task_low_level_submission('bibupload', get_nickname(uid) or "", "-a", tmp_file_name, "-P5", "-N", "bibauthorid")
 

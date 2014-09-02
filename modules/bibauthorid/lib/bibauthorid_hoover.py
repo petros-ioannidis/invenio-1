@@ -184,6 +184,28 @@ def get_inspireID_from_hepnames(pid):
     except KeyError:
         return None
 
+class HepnamesConnector(object):
+    """A class to handle the connections that are to be performed.
+    This is needed to avoid the creation of too many bibupload tasks
+
+    @args:
+        produce_connection_entry -- the function that returns the correspondance
+                                    between canonical name and record id
+
+    @attrs:
+        cname_dict -- the dictionary that holds the connections that need to be done
+    """
+    def __init__(self, produce_connection_entry=None):
+        self.cname_dict = dict()
+        self.produce_connection_entry = produce_connection_entry
+
+    def add_connection(self, pid, inspireID):
+        tmp = connect_hepnames_to_inspireID(pid, inspireID)
+        if tmp:
+            self.cname_dict.update(tmp)
+
+    def execute_connection(self):
+        add_cname_to_hepname_record(self.cname_dict)
 
 def connect_hepnames_to_inspireID(pid, inspireID):
     """Connect the hepnames record with the record of the inspireID
@@ -206,7 +228,7 @@ def connect_hepnames_to_inspireID(pid, inspireID):
                 recid,
                 'INSPIREID')
         logger.log("Connecting pid", pid, "canonical_name", author_canonical_name, "inspireID", inspireID)
-        add_cname_to_hepname_record(author_canonical_name, recid[0])
+        return {author_canonical_name: recid[0]}
 
 
 class Vacuumer(object):
@@ -413,6 +435,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
     logger.log("Running on ", len(authors), " !")
 
     unclaimed_authors = defaultdict(set)
+    hep_connector = HepnamesConnector()
 
     for index, pid in enumerate(authors):
         logger.log("Searching for reliable ids of person %s" % pid)
@@ -458,6 +481,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
     logger.log("Vacuuming reliable ids...")
 
     for identifier_type, data in fdict_id_getters.iteritems():
+        hep_connector.produce_connection_entry = fdict_id_getters[identifier_type]['connection']
         for pid, identifiers in data['data_dicts']['pid_mapping'].iteritems():
             logger.log("   Person %s has reliable identifier(s) %s " % (str(pid),str(identifiers)))
             try:
@@ -479,7 +503,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
                                     unclaimed_authors[identifier_type].add(e.pid)
                             logger.log("        Adding inspireid ", identifier, " to pid ", pid)
                             add_external_id_to_author(pid, identifier_type, identifier)
-                            fdict_id_getters[identifier_type]['connection'](pid, identifier)
+                            hep_connector.add_connection(pid, identifier)
 
                     else:
                         raise MultipleAuthorsWithSameIdException(
@@ -504,6 +528,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
     logger.log("Vacuuming unreliable ids...")
 
     for identifier_type, functions in fdict_id_getters.iteritems():
+        hep_connector.produce_connection_entry = fdict_id_getters[identifier_type]['connection']
         for index, pid in enumerate(unclaimed_authors[identifier_type]):
             logger.log("Searching for unreliable ids of person %s" % pid)
             try:
@@ -541,8 +566,9 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
 
                 logger.log("     Adding inspireid ", res, " to pid ", pid)
                 add_external_id_to_author(pid, identifier_type, res)
-                fdict_id_getters[identifier_type]['connection'](pid, res)
+                hep_connector.add_connection(pid, res)
             logger.log("   Done with ", pid)
+    hep_connector.execute_connection()
     logger.log("Terminating hoover")
 
 if __name__ == "__main__":

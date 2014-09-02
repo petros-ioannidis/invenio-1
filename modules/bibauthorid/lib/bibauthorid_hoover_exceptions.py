@@ -1,4 +1,5 @@
 from invenio.bibauthorid_dbinterface import get_canonical_name_of_author, get_name_by_bibref
+
 class HooverException(Exception):
 
     def __init__(self):
@@ -9,6 +10,7 @@ class HooverException(Exception):
 
     def get_message_subject(self):
         raise NotImplementedError(self.__repr__())
+
 class InconsistentIdentifiersException(HooverException):
     """Exception Class for the case of different reliable identifiers in the
     database

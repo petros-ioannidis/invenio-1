@@ -190,6 +190,11 @@ def _task_run_core():
             run_tortoise(from_scratch)
             bibtask.task_update_progress('Full disambiguation finished!')
 
+    if bibtask.task_get_option("hoover"):
+        bibtask.task_update_progress('Initializing hoover')
+        run_hoover()
+        bibtask.task_update_progress('Terminating hoover')
+
     if bibtask.task_get_option("merge"):
         bibtask.task_update_progress('Merging results...')
         run_merge()
@@ -357,11 +362,15 @@ def run_rabbit(paperslist, all_records=False):
             'bibauthorid_daemon, personid_fast_assign_papers on ' + str(paperslist),
             partial=True)
 
+def run_hoover(authors=None, check_db_consistency=False):
+    from invenio.bibauthorid_hoover import hoover
+    hoover(authors, check_db_consistency)
 
 def run_tortoise(from_scratch, last_names_thresholds=None,
                  single_threaded=False):
 
     _prepare_tortoise_cache()
+
 
     from invenio.bibauthorid_tortoise import tortoise, \
         tortoise_from_scratch, tortoise_last_name, tortoise_last_names
