@@ -111,7 +111,10 @@ Examples:
                                        "from-scratch",
                                        "last-names=",
                                        "st",
-                                       "single-threaded"
+                                       "single-threaded",
+                                       "force-identifier-consistency",
+                                       "consistency-check",
+                                       "dry-run",
                                        ]),
                       task_submit_elaborate_specific_parameter_fnc=_task_submit_elaborate_specific_parameter,
                       task_submit_check_options_fnc=_task_submit_check_options,
@@ -150,6 +153,12 @@ def _task_submit_elaborate_specific_parameter(key, value, opts, args):
         bibtask.task_set_option("last-names", value)
     elif key in ("--single-threaded",):
         bibtask.task_set_option("single-threaded", True)
+    elif key in ("--force-identifier-consistency",):
+        bibtask.task_set_option("force-identifier-consistency", True)
+    elif key in ("--check-only",):
+        bibtask.task_set_option("check-only", True)
+    elif key in ("--dry-run",):
+        bibtask.task_set_option("dry-run", True)
     else:
         return False
 
@@ -190,9 +199,11 @@ def _task_run_core():
             run_tortoise(from_scratch)
             bibtask.task_update_progress('Full disambiguation finished!')
 
-    if bibtask.task_get_option("hoover"):
+    if bibtask.task_get_option("force-identifier-consistency"):
+        check_only = bibtask.task_get_option("check-only")
+        dry_run_b = bibtask.task_get_option("dry_run")
         bibtask.task_update_progress('Initializing hoover')
-        run_hoover()
+        run_hoover(check_db_consistency=check_only, dry_run=dry_run_b)
         bibtask.task_update_progress('Terminating hoover')
 
     if bibtask.task_get_option("merge"):
@@ -238,13 +249,17 @@ def _task_submit_check_options():
     disambiguate = bibtask.task_get_option("disambiguate")
     merge = bibtask.task_get_option("merge")
     update_search_index = bibtask.task_get_option("update_search_index")
+    force_identifier_consistency = bibtask.task_get_option("force-identifier-consistency")
 
     record_ids = bibtask.task_get_option("record_ids")
     all_records = bibtask.task_get_option("all_records")
     from_scratch = bibtask.task_get_option("from_scratch")
 
+    check_only = bibtask.task_get_option("check-only")
+    dry_run_b = bibtask.task_get_option("dry_run")
+
     commands = (bool(update_personid) + bool(disambiguate) +
-                bool(merge) + bool(update_search_index))
+                bool(merge) + bool(update_search_index) + bool(force_identifier_consistency))
 
     if commands == 0:
         bibtask.write_message(
@@ -292,6 +307,7 @@ def _task_submit_check_options():
                                   "specified along with --merge", stream=sys.stdout, verbose=0)
             return False
 
+#to do hoover
     return True
 
 
@@ -362,9 +378,9 @@ def run_rabbit(paperslist, all_records=False):
             'bibauthorid_daemon, personid_fast_assign_papers on ' + str(paperslist),
             partial=True)
 
-def run_hoover(authors=None, check_db_consistency=False):
+def run_hoover(authors=None, check_db_consistency=False, dry_run=False):
     from invenio.bibauthorid_hoover import hoover
-    hoover(authors, check_db_consistency)
+    hoover(authors, check_db_consistency, dry_run)
 
 def run_tortoise(from_scratch, last_names_thresholds=None,
                  single_threaded=False):

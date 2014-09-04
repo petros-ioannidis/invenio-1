@@ -365,7 +365,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
 
 
 @timed
-def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=False):
+def hoover(authors=None, check_db_consistency=False, dry_run=False, dry_hepnames_run=False, statistics=False):
     """The actions that hoover performs are the following:
     1. Find out the identifiers that belong to the authors(pids) in the database
     2. Find and pull all the signatures that have the same identifier as the author to the author
@@ -568,7 +568,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, statistics=F
                 add_external_id_to_author(pid, identifier_type, res)
                 hep_connector.add_connection(pid, res)
             logger.log("   Done with ", pid)
-    hep_connector.execute_connection()
+    if not dry_hepnames_run:
+        hep_connector.execute_connection()
     logger.log("Terminating hoover")
 
 if __name__ == "__main__":
