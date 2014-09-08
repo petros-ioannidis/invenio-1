@@ -195,17 +195,26 @@ class HepnamesConnector(object):
     @attrs:
         cname_dict -- the dictionary that holds the connections that need to be done
     """
-    def __init__(self, produce_connection_entry=None):
+    def __init__(self, produce_connection_entry=None, packet_size=1000, dry_hepnames_run=False):
         self.cname_dict = dict()
         self.produce_connection_entry = produce_connection_entry
+        self.packet_size = packet_size
+        if dry_hepnames_run:
+            delattr(self, 'execute_connection')
+            def _null_func():
+                pass
+            setattr(self, 'execute_connection', _null_func)
 
     def add_connection(self, pid, inspireID):
         tmp = connect_hepnames_to_inspireID(pid, inspireID)
         if tmp:
             self.cname_dict.update(tmp)
+        if len(self.cname_dict.keys()) >= self.packet_size:
+            self.execute_connection()
 
     def execute_connection(self):
         add_cname_to_hepname_record(self.cname_dict)
+        self.cname_dict.clear()
 
 def connect_hepnames_to_inspireID(pid, inspireID):
     """Connect the hepnames record with the record of the inspireID
@@ -364,8 +373,9 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
         raise MultipleIdsOnSingleAuthorException('Signatures conflicting:' + ','.join(unclaimed_paper_signatures), pid, 'INSPIREID', inspireID_list)
 
 
+#put packet_size inside the daemon
 @timed
-def hoover(authors=None, check_db_consistency=False, dry_run=False, dry_hepnames_run=False, statistics=False):
+def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=1000, dry_hepnames_run=False, statistics=False):
     """The actions that hoover performs are the following:
     1. Find out the identifiers that belong to the authors(pids) in the database
     2. Find and pull all the signatures that have the same identifier as the author to the author
@@ -396,9 +406,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, dry_hepnames
                          lambda pid: get_inspireID_from_claimed_papers(
                          pid, intersection_set=records_with_id)],
 
-            'unreliable':
-            [lambda pid: get_inspireID_from_unclaimed_papers(
-             pid, intersection_set=records_with_id)],
+            'unreliable': [lambda pid: get_inspireID_from_unclaimed_papers(
+                           pid, intersection_set=records_with_id)],
             'signatures_getter': get_signatures_with_inspireID,
             'connection': connect_hepnames_to_inspireID,
             'data_dicts': {
@@ -435,7 +444,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, dry_hepnames
     logger.log("Running on ", len(authors), " !")
 
     unclaimed_authors = defaultdict(set)
-    hep_connector = HepnamesConnector()
+    hep_connector = HepnamesConnector(packet_size=packet_size, dry_hepnames_run=dry_hepnames_run)
 
     for index, pid in enumerate(authors):
         logger.log("Searching for reliable ids of person %s" % pid)
@@ -568,8 +577,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, dry_hepnames
                 add_external_id_to_author(pid, identifier_type, res)
                 hep_connector.add_connection(pid, res)
             logger.log("   Done with ", pid)
-    if not dry_hepnames_run:
-        hep_connector.execute_connection()
+    hep_connector.execute_connection()
     logger.log("Terminating hoover")
 
 if __name__ == "__main__":

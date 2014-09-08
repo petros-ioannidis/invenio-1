@@ -69,6 +69,9 @@ Examples:
 
       --update-search-index Updates the search engine index.
 
+      --force-identifier-consistency Forces the consistency of the identifers
+                                     in the database
+
   OPTIONS
     Options for update personid
       (default)             Will update only the modified records since last
@@ -98,6 +101,10 @@ Examples:
                                   and for testing. The flag is only valid when some last names are specified.
 
     There are no options for the merger.
+
+    Options for force identifier consistency
+        --check-only
+        --dry-run
 """,
                       version="Invenio Bibauthorid v%s" % bconfig.VERSION,
                       specific_params=("i:",
