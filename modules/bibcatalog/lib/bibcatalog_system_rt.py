@@ -178,6 +178,7 @@ class BibCatalogSystemRT(BibCatalogSystem):
     def ticket_submit(self, uid=None, subject="", recordid=-1, text="",
                       queue="", priority="", owner="", requestor=""):
         comment = False
+        print 'I am in rt'
         if "\n" in text:
             # The RT client does not support newlines in the initial body
             # We need to add the ticket then add a comment.

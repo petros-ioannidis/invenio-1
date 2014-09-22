@@ -105,6 +105,7 @@ Examples:
     Options for force identifier consistency
         --check-only
         --dry-run
+
 """,
                       version="Invenio Bibauthorid v%s" % bconfig.VERSION,
                       specific_params=("i:",
@@ -122,6 +123,7 @@ Examples:
                                        "force-identifier-consistency",
                                        "consistency-check",
                                        "dry-run",
+                                       "query-file-size="
                                        ]),
                       task_submit_elaborate_specific_parameter_fnc=_task_submit_elaborate_specific_parameter,
                       task_submit_check_options_fnc=_task_submit_check_options,
@@ -166,6 +168,11 @@ def _task_submit_elaborate_specific_parameter(key, value, opts, args):
         bibtask.task_set_option("check-only", True)
     elif key in ("--dry-run",):
         bibtask.task_set_option("dry-run", True)
+    elif key in ("--query-file-size"):
+        if value.count("="):
+            value = value[1:]
+        value = int(value)
+        bibtask.task_set_option("query-file-size", value)
     else:
         return False
 
@@ -209,8 +216,12 @@ def _task_run_core():
     if bibtask.task_get_option("force-identifier-consistency"):
         check_only = bibtask.task_get_option("check-only")
         dry_run_b = bibtask.task_get_option("dry_run")
+        query_file_size = bibtask.task_get_option("query-file-size")
         bibtask.task_update_progress('Initializing hoover')
-        run_hoover(check_db_consistency=check_only, dry_run=dry_run_b)
+        if query_file_size:
+            run_hoover(check_db_consistency=check_only, dry_run=dry_run_b, packet_size=query_file_size)
+        else:
+            run_hoover(check_db_consistency=check_only, dry_run=dry_run_b)
         bibtask.task_update_progress('Terminating hoover')
 
     if bibtask.task_get_option("merge"):
@@ -385,9 +396,9 @@ def run_rabbit(paperslist, all_records=False):
             'bibauthorid_daemon, personid_fast_assign_papers on ' + str(paperslist),
             partial=True)
 
-def run_hoover(authors=None, check_db_consistency=False, dry_run=False):
+def run_hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=1000):
     from invenio.bibauthorid_hoover import hoover
-    hoover(authors, check_db_consistency, dry_run)
+    hoover(authors, check_db_consistency, dry_run, packet_size=packet_size)
 
 def run_tortoise(from_scratch, last_names_thresholds=None,
                  single_threaded=False):

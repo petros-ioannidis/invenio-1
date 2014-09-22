@@ -3260,7 +3260,7 @@ def add_cname_to_hepname_record(cname_dict, uid=None):
                         (CFG_BIBUPLOAD_EXTERNAL_OAIID_TAG[5:6], str(cname)),
                         (CFG_BIBUPLOAD_EXTERNAL_OAIID_PROVENANCE_TAG[5:6], 'BAI')])
         tmp_file.write(record_xml_output(rec))
-        print record_xml_output(rec)
+        #print record_xml_output(rec)
     tmp_file.close()
     task_low_level_submission('bibupload', get_nickname(uid) or "", "-a", tmp_file_name, "-P5", "-N", "bibauthorid")
 

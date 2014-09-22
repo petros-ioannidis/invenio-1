@@ -222,7 +222,7 @@ if GLOBAL_CONFIG and CFG_INSPIRE_SITE:
 TICKET_SENDING_FROM_USER_EMAIL = True
 
 #should hoover open tickets in the system
-HOOVER_OPEN_RT_TICKETS = False
+HOOVER_OPEN_RT_TICKETS = True
 
 # Regexp for the names separation
 NAMES_SEPARATOR_CHARACTER_LIST = ",;.=\-\(\)"

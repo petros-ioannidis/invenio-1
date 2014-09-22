@@ -1,3 +1,4 @@
+from hashlib import md5
 from invenio.bibauthorid_dbinterface import get_canonical_name_of_author, get_name_by_bibref
 
 class HooverException(Exception):
@@ -9,6 +10,9 @@ class HooverException(Exception):
         raise NotImplementedError(self.__repr__())
 
     def get_message_subject(self):
+        raise NotImplementedError(self.__repr__())
+    
+    def hash(self):
         raise NotImplementedError(self.__repr__())
 
 class InconsistentIdentifiersException(HooverException):
@@ -30,6 +34,9 @@ class InconsistentIdentifiersException(HooverException):
         msg.append(self.message)
         return '\n'.join(msg)
 
+    def hash(self):
+        return md5(self.__repr__() + str(self.pid) + str(self.identifier_type)).hexdigest()
+
 class DuplicatePaperException(HooverException):
     """Base class for duplicated papers conflicts"""
 
@@ -45,6 +52,9 @@ class DuplicatePaperException(HooverException):
         self.pid = pid
         self.signature = signature
         self.present_signatures = present_signatures
+
+    def hash(self):
+        return md5(self.__repr__() + str(self.pid) + str(self.signature)).hexdigest()
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
     """Class for duplicated papers conflicts when one of them is claimed"""
@@ -98,6 +108,9 @@ class BrokenHepNamesRecordException(HooverException):
         msg.append(self.message)
         return '\n'.join(msg)
 
+    def hash(self):
+        return md5(self.__repr__() + str(self.recid) + str(self.identifier_type)).hexdigest()
+
 class NoCanonicalNameException(HooverException):
     """Base class for no canonical name found for a pid"""
 
@@ -110,6 +123,9 @@ class NoCanonicalNameException(HooverException):
         """
         Exception.__init__(self, message)
         self.pid = pid
+
+    def hash(self):
+        return md5(self.__repr__() + str(self.pid)).hexdigest()
 
 class ConflictingIdsOnRecordException(HooverException):
     def __init__(self, message, pid, identifier_type, ids_list, record):
@@ -128,6 +144,9 @@ class ConflictingIdsOnRecordException(HooverException):
         msg.append("The following ids are associated to the same name: %s" % ', '.join(self.ids_list))
         msg.append(self.message)
         return '\n'.join(msg)
+
+    def hash(self):
+        return md5(self.__repr__() + str(self.record) + str(self.identifier_type)).hexdigest()
 
 class MultipleAuthorsWithSameIdException(HooverException):
     """Base class for multiple authors with the same id"""
@@ -153,6 +172,9 @@ class MultipleAuthorsWithSameIdException(HooverException):
         msg.append('Those profiles are sharing the same %s identifier!' % self.identifier_type)
         msg.append(self.message)
         return '\n'.join(msg)
+
+    def hash(self):
+        return md5(self.__repr__() + str(sorted(self.pids)) + str(self.identifier_type)).hexdigest()
 
 class MultipleIdsOnSingleAuthorException(HooverException):
     """Base class for multiple ids on a single author"""
@@ -183,6 +205,9 @@ class MultipleIdsOnSingleAuthorException(HooverException):
         msg.append(self.message)
         return '\n'.join(msg)
 
+    def hash(self):
+        return md5(self.__repr__() + str(self.pid) + str(self.identifier_type)).hexdigest()
+
 class MultipleHepnamesRecordsWithSameIdException(HooverException):
     """Base class for conflicting HepNames records"""
 
@@ -207,4 +232,7 @@ class MultipleHepnamesRecordsWithSameIdException(HooverException):
         msg.append('Those records are sharing the same %s identifier!' % self.identifier_type)
         msg.append(self.message)
         return '\n'.join(msg)
+
+    def hash(self):
+        return md5(self.__repr__() + str(sorted(self.recids)) + str(self.identifier_type)).hexdigest()
 

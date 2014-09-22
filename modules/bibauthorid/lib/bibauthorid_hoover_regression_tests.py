@@ -288,7 +288,6 @@ class BibAuthorIDHooverTestCase(TestCase):
         claim_test_paper(cls.bibrecs['paper14'])
         claim_test_paper(cls.bibrecs['paper18'])
         print list(set(cls.pids[key] for key in cls.pids))
-        print "dupl", dupl
         #DuplicateClaimedPaperException = Mock(side_effect=mock_add)
 
         #task_id = reindex_for_type_with_bibsched("collection")
@@ -322,20 +321,20 @@ class BibAuthorIDHooverTestCase(TestCase):
         
         #task_low_level_submission(*params)
 
-        program = os.path.join(CFG_BINDIR, 'bibindex')
-        args = ['bibindex', 'hoover_regression_tests', '-w', 'collection', '-u', 'admin']
-        args.append("--force")
-        task_id = task_low_level_submission(*args)
+        #program = os.path.join(CFG_BINDIR, 'bibindex')
+        #args = ['bibindex', 'hoover_regression_tests', '-w', 'collection', '-u', 'admin']
+        #args.append("--force")
+        #task_id = task_low_level_submission(*args)
         #COMMAND = "%s %s" % (program, str(task_id))
         #os.system(COMMAND)
 
-        raw_input()
-        force_webcoll(cls.bibrecs['paper15'])
-        print "pids"
-        print cls.pids
-        print "bibrecs"
-        print cls.bibrecs
-        raw_input()
+        #raw_input()
+        #force_webcoll(cls.bibrecs['paper15'])
+        #print "pids"
+        #print cls.pids
+        #print "bibrecs"
+        #print cls.bibrecs
+        #raw_input()
 
         invenio.bibauthorid_hoover.DuplicateClaimedPaperException = MockClaimedException
         invenio.bibauthorid_hoover.DuplicateUnclaimedPaperException = MockUnclaimedException
@@ -617,7 +616,7 @@ class DuplicatedSignaturesTestCase(BibAuthorIDHooverTestCase):
         duplicated_unclaimed_signature()
 
 
-TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase, HepnamesHooverTestCase, DuplicatedSignaturesTestCase)
+TEST_SUITE = make_test_suite(OneAuthorOnePaperHooverTestCase, OneAuthorManyPapersHooverTestCase, ManyAuthorsHooverTestCase, DuplicatedSignaturesTestCase)
 
 if __name__ == "__main__":
     run_test_suite(TEST_SUITE, warn_user=False)

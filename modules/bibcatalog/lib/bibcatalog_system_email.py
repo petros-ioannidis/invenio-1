@@ -64,6 +64,7 @@ class BibCatalogSystemEmail(BibCatalogSystem):
                                subject='bibcatalog email not configured',
                                prefix="please configure bibcatalog email sending in CFG_BIBCATALOG_SYSTEM and CFG_BIBCATALOG_SYSTEM_EMAIL_ADDRESS")
 
+        print 'I am in mail'
         ticket_id = self._get_ticket_id()
         priorityset = ""
         queueset = ""

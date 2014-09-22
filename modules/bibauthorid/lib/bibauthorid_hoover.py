@@ -27,17 +27,22 @@ try:
 except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
 
-
 def open_rt_ticket(e):
-    subject = e.get_message_subject()
-    body = e.get_message_body()
-    debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
-    queue = ''
-    if bconfig.HOOVER_OPEN_RT_TICKETS:
-        BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=body+'\n Debugging information: \n'+debug,
-                                        queue=queue, priority="", owner="", requestor="")
+    global ticket_hashes
+    if e.hash() not in ticket_hashes:
+        subject = e.hash() + ' ' + e.get_message_subject()
+        body = e.get_message_body()
+        debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
+        queue = 'Test'
+        if bconfig.HOOVER_OPEN_RT_TICKETS:
+            ticketid = BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=body+'\n Debugging information: \n'+debug,
+                                            queue=queue, priority="", owner="", requestor="")
+        else:
+            logger.log('sub: '+subject+'\nbody:\n'+body+'\ndbg:\n'+debug)
     else:
-        logger.log('sub: '+subject+'\nbody:\n'+body+'\ndbg:\n'+debug)
+        print 'ticket already there!!'
+        subject = e.hash() + ' ' + e.get_message_subject()
+        print subject
 
 def timed(func):
     def print_time(*args, **kwds):
@@ -372,6 +377,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     else:
         raise MultipleIdsOnSingleAuthorException('Signatures conflicting:' + ','.join(unclaimed_paper_signatures), pid, 'INSPIREID', inspireID_list)
 
+ticket_hashes = list()
 
 #put packet_size inside the daemon
 @timed
@@ -384,7 +390,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
     authors -- an iterable of authors to be hoovered
     check_db_consistency -- perform checks for the consistency of th database
     """
-
+    
+    logger.log("Packet size %d" % packet_size)
     logger.log("Initializing hoover")
     logger.log("Selecting records with identifiers...")
     recs = get_records_with_tag('100__i')
@@ -399,6 +406,22 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
 
     destroy_partial_marc_caches()
     populate_partial_marc_caches(records_with_id, create_inverted_dicts=True)
+
+    if bconfig.HOOVER_OPEN_RT_TICKETS:
+        global ticket_hashes
+        logger.log("Ticketing system rt is used")
+        logger.log("Building hash cache for tickets")
+        ticket_ids = BIBCATALOG_SYSTEM.ticket_search(None, subject='[Hoover]')
+        print ticket_ids
+        for ticket_id in ticket_ids:
+            print ticket_id
+            try:
+                ticket_hashes += [BIBCATALOG_SYSTEM.ticket_get_info(None, ticket_id)['subject'].split()[0]]
+            except IndexError:
+                logger.log("Problem in subject of ticket", ticket_id)
+        print ticket_hashes
+        logger.log("Found %s tickets" % len(ticket_hashes))
+
     fdict_id_getters = {
         "INSPIREID": {
             'reliable': [get_inspire_id_of_author,
