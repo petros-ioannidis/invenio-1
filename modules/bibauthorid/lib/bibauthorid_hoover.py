@@ -28,22 +28,35 @@ except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
 
 def open_rt_ticket(e):
-    global ticket_hashes
-    if e.hash() not in ticket_hashes:
-        subject = e.hash() + ' ' + e.get_message_subject()
-        body = e.get_message_body()
-        debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
-        queue = 'Test'
-        if bconfig.HOOVER_OPEN_RT_TICKETS:
-            ticketid = BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=-1, text=body+'\n Debugging information: \n'+debug,
-                                            queue=queue, priority="", owner="", requestor="")
-        else:
-            logger.log('sub: '+subject+'\nbody:\n'+body+'\ndbg:\n'+debug)
-    else:
-        print 'ticket already there!!'
-        subject = e.hash() + ' ' + e.get_message_subject()
-        print subject
+    """Take an exception e and, if allowed by the configuration, 
+    open a ticket for that exception.
 
+    Arguments:
+    e -- the exception to be reported
+    """
+    global ticket_hashes
+    ticket_hash = e.hash()
+    subject = ticket_hash + ' ' + e.get_message_subject()
+    body = e.get_message_body()
+    debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
+    if bconfig.HOOVER_OPEN_RT_TICKETS:
+        queue = 'Test'
+        if ticket_hash not in ticket_hashes.iterkeys():
+            ticket_id = BIBCATALOG_SYSTEM.ticket_submit(uid=None, subject=subject, recordid=e.recid, text=body+'\n Debugging information: \n'+debug,
+                                            queue=queue, priority="", owner="", requestor="")
+            ticket_data = BIBCATALOG_SYSTEM.ticket_get_info(None, ticket_id)
+            ticket_hashes[ticket_hash] = ticket_data, ticket_id, True
+        else:
+            ticket_hashes[ticket_hash] = ticket_hashes[ticket_hash][:2] + (True,)
+            # If the ticket is already there check its status.  In case it is
+            # marked as somehow solved -- i.e. resolved, deleted or rejected --
+            # reopen it.
+            if ticket_hashes[ticket_hash][0]['status'] in ['resolved', 'deleted', 'rejected']:
+                BIBCATALOG_SYSTEM.ticket_set_attribute(None, ticket_hashes[ticket_hash][1], 'status', 'open')
+    else:
+        logger.log('sub: '+subject+'\nbody:\n'+body+'\ndbg:\n'+debug)
+
+#this is to be deleted
 def timed(func):
     def print_time(*args, **kwds):
         t0 = time()
@@ -52,55 +65,6 @@ def timed(func):
         return res
     return print_time
 
-
-#==================================================================================================================#
-#==================================================================================================================#
-
-#class ConflictingIdsException(HooverException):
-#    """Base class for conflicting ids in authors"""
-#
-#    def __init__(self, message, pid, identifier_type, ids_list):
-#        """Set up the exception class
-#
-#        arguments:
-#        message -- the message to be displayed when the exceptions is raised
-#        pid -- the pid of the author that caused the exception
-#        identifier -- the type of the identifier that caused the exception
-#        """
-#        Exception.__init__(self, message)
-#        self.pid = pid
-#        self.identifier_type = identifier_type
-#        self.ids_list = ids_list
-#
-#    """Class for conflicting ids in authors that are caused from reliable sources"""
-#    def get_message_subject(self):
-#        return "[Hoover] Conflicting identifiers in user verified data"
-#
-#    def get_message_body(self):
-#        msg = ["Found conflicting %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
-#        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
-#        msg.append(msg)
-#        return '\n'.join(msg)
-#
-#class NonUniqueIdentifiersException(HooverException):
-#    """Exception Class for the case of non unique reliable identifiers in the
-#    database
-#    """
-#    def __init__(self, message, pids, identifier_type, identifier):
-#        Exception.__init__(self, message)
-#        self.pids = pids
-#        self.identifier_type = identifier_type
-#        self.identifier = identifier
-#
-#    def get_message_subject(self):
-#        return '[Hoover] Identifier found with multiple authors connected'
-#
-#    def get_message_body(self):
-#        msg = ["Found identifier %s with value (%s) on profiles: " % (self.identifier_type, self.identifier)]
-#        for pid in self.pids:
-#            msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(pid) )
-#        return '\n'.join(msg)
-#
 def get_signatures_with_inspireID_sql(inspireID):
     """Signatures of specific inspireID using an Sql query"""
     signatures = run_sql("SELECT 100, secondbib.id, firstbibrec.id_bibrec \
@@ -155,7 +119,7 @@ get_all_recids_in_hepnames = memoized(get_all_recids_in_hepnames)
 def get_inspireID_from_hepnames(pid):
     """return inspireID of a pid by searching the hepnames
 
-    arguments:
+    Arguments:
     pid -- the pid of the author to search in the hepnames dataset
     """
     author_canonical_name = get_canonical_name_of_author(pid)
@@ -165,7 +129,7 @@ def get_inspireID_from_hepnames(pid):
         recid = set(search_unit_in_bibxxx(p=author_canonical_name[0][0], f='035__', type='='))
         recid = list(recid & hepnames_recids)
 
-        if len(recid)>1:
+        if len(recid) > 1:
             raise MultipleHepnamesRecordsWithSameIdException(
                 "More than one hepnames record found with the same inspire id",
                 recid,
@@ -193,12 +157,12 @@ class HepnamesConnector(object):
     """A class to handle the connections that are to be performed.
     This is needed to avoid the creation of too many bibupload tasks
 
-    @args:
-        produce_connection_entry -- the function that returns the correspondance
-                                    between canonical name and record id
+    Arguments:
+    produce_connection_entry -- the function that returns the correspondance
+                                between canonical name and record id
 
-    @attrs:
-        cname_dict -- the dictionary that holds the connections that need to be done
+    Attributes:
+    cname_dict -- the dictionary that holds the connections that need to be done
     """
     def __init__(self, produce_connection_entry=None, packet_size=1000, dry_hepnames_run=False):
         self.cname_dict = dict()
@@ -224,7 +188,7 @@ class HepnamesConnector(object):
 def connect_hepnames_to_inspireID(pid, inspireID):
     """Connect the hepnames record with the record of the inspireID
 
-    arguments:
+    Arguments:
     pid -- the pid of the author that has the inspireID
     inspireID -- the inspireID of the author
     """
@@ -246,11 +210,12 @@ def connect_hepnames_to_inspireID(pid, inspireID):
 
 
 class Vacuumer(object):
-    def __init__(self, pid):
-        """Constructor of the class responsible for vacuuming the signatures to the right profile
+    """Class responsible for vacuuming the signatures to the right profile
 
-        pid -- the pid of the author
-        """
+    Constructor arguments:
+    pid -- the pid of the author
+    """
+    def __init__(self, pid):
         self.claimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_unclaimed=False))
         self.unclaimed_paper_signatures = set(sig[1:4] for sig in get_papers_of_author(pid, include_claimed=False))
         self.claimed_paper_records = set(rec[2] for rec in self.claimed_paper_signatures)
@@ -284,7 +249,7 @@ class Vacuumer(object):
 def get_signatures_with_inspireID(inspireID):
     """get and vacuum of the signatures that belong to this inspireID
 
-    arguments:
+    Arguments:
     inspireID -- the string containing the inspireID
     """
     logger.log("I was called with inspireID", inspireID)
@@ -294,7 +259,7 @@ def get_signatures_with_inspireID(inspireID):
 def get_records_with_tag(tag):
     """return all the records with a specific tag
 
-    arguments:
+    Arguments:
     tag -- the tag to search for
     """
     assert tag in ['100__i', '100__j', '700__i', '700__j']
@@ -310,7 +275,7 @@ def get_inspireID_from_claimed_papers(pid, intersection_set=None):
     if there is  a conflict in the inspireIDs of the papers the
     ConflictingIdsFromReliableSource exception is raised
 
-    arguments:
+    Arguments:
     pid -- the pid of the author
     intersection_set -- a set of paper signatures. The unclaimed paper
                         signatures are then intersected with this set.
@@ -347,7 +312,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     if there is  a conflict in the inspireIDs of the papers the
     ConflictingIdsFromUnreliableSource exception is raised
 
-    arguments:
+    Arguments:
     pid -- the pid of the author
     intersection_set -- a set of paper signatures. The unclaimed paper
                         signatures are then intersected with this set.
@@ -362,7 +327,6 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     for sig in unclaimed_paper_signatures:
         inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
-
             if len(inspireID) > 1:
                 open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids found', pid, 'INSPIREID', inspireID, sig[2]))
                 return None
@@ -377,7 +341,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
     else:
         raise MultipleIdsOnSingleAuthorException('Signatures conflicting:' + ','.join(unclaimed_paper_signatures), pid, 'INSPIREID', inspireID_list)
 
-ticket_hashes = list()
+ticket_hashes = dict()
 
 #put packet_size inside the daemon
 @timed
@@ -387,8 +351,15 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
     2. Find and pull all the signatures that have the same identifier as the author to the author
     3. Connect the profile of the author with the hepnames collection entry
     (optional). check the database to see if it is in a consistent state
+
+    Keyword arguments:
     authors -- an iterable of authors to be hoovered
     check_db_consistency -- perform checks for the consistency of th database
+    dry_run -- do not alter the database tables
+    packet_size -- squeeze together the marcxml. This there are fewer bibupload 
+                   processes for the bibsched to run.
+    dry_hepnames_run -- do not alter the hepnames collection
+    statistics -- report statistics for the algorithm (to be done)
     """
     
     logger.log("Packet size %d" % packet_size)
@@ -416,7 +387,8 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
         for ticket_id in ticket_ids:
             print ticket_id
             try:
-                ticket_hashes += [BIBCATALOG_SYSTEM.ticket_get_info(None, ticket_id)['subject'].split()[0]]
+                ticket_data = BIBCATALOG_SYSTEM.ticket_get_info(None, ticket_id)
+                ticket_hashes[ticket_data['subject'].split()[0]] = ticket_data, ticket_id, False
             except IndexError:
                 logger.log("Problem in subject of ticket", ticket_id)
         print ticket_hashes
@@ -490,7 +462,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
                     else:
                         if consistent_db == False:
                             res = None
-                            raise InconsistentIdentifiersException('Inconsistent database', pid, identifier_type, results)
+                            raise InconsistentIdentifiersException('Inconsistent database', pid, identifier_type, set(results))
                 else:
                     res = next((func for func in G if func), None)
             except MultipleIdsOnSingleAuthorException as e:
@@ -601,6 +573,9 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
                 hep_connector.add_connection(pid, res)
             logger.log("   Done with ", pid)
     hep_connector.execute_connection()
+    for ticket in ticket_hashes:
+        if ticket[2] == False:
+            BIBCATALOG_SYSTEM.ticket_set_attribute(None, ticket[1], 'status', 'resolved')
     logger.log("Terminating hoover")
 
 if __name__ == "__main__":

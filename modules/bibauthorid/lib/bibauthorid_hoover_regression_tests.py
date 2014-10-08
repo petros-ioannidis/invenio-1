@@ -48,9 +48,7 @@ dupl = 0
 pid = -1
 def mock_add():
     global dupl
-    print "yooooooo",dupl
     dupl += 1
-    print "yaaaaaaa",dupl
 
 class BibAuthorIDHooverTestCase(TestCase):
 

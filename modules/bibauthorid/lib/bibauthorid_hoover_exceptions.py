@@ -2,9 +2,14 @@ from hashlib import md5
 from invenio.bibauthorid_dbinterface import get_canonical_name_of_author, get_name_by_bibref
 
 class HooverException(Exception):
+    """Main class for hoover exceptions.
 
-    def __init__(self):
-        pass
+    Arguments:
+    message -- a string with the message to be displayed to the user
+    """
+    def __init__(self, message):
+        Exception.__init__(self, message)
+        self.recid = -1
 
     def get_message_body(self):
         raise NotImplementedError(self.__repr__())
@@ -16,11 +21,17 @@ class HooverException(Exception):
         raise NotImplementedError(self.__repr__())
 
 class InconsistentIdentifiersException(HooverException):
-    """Exception Class for the case of different reliable identifiers in the
-    database
+    """Exception Class in case an author is found with 2 different
+    identifiers connected to his profile.
+
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    pid -- the pid of the author that caused the exception
+    identifier_type -- the type of the identifiers
+    ids_list -- an iterable holding all the values of the identifiers
     """
     def __init__(self, message, pid, identifier_type, ids_list):
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.pid = pid
         self.identifier_type = identifier_type
         self.ids_list = ids_list
@@ -30,6 +41,7 @@ class InconsistentIdentifiersException(HooverException):
 
     def get_message_body(self):
         msg = ["Found multiple different %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
+        ###FIIIIIIX THIIIIIIS TUPLE to STRING
         msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
         msg.append(self.message)
         return '\n'.join(msg)
@@ -38,17 +50,16 @@ class InconsistentIdentifiersException(HooverException):
         return md5(self.__repr__() + str(self.pid) + str(self.identifier_type)).hexdigest()
 
 class DuplicatePaperException(HooverException):
-    """Base class for duplicated papers conflicts"""
+    """Base class for duplicated papers conflicts
 
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    pid -- the pid of the author that caused the exception
+    signature -- the signature that raised the exception
+    present_signatures -- the signatures that are already present in the paper
+    """
     def __init__(self, message, pid, signature, present_signatures):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        pid -- the pid of the author that caused the exception
-        signature -- the signature that raise the exception
-        """
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.pid = pid
         self.signature = signature
         self.present_signatures = present_signatures
@@ -80,22 +91,22 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
         msg.append(self.message)
         return '\n'.join(msg)
 
+#This class does not have any usage yet
 class DuplicateUnclaimedPaperException(DuplicatePaperException):
     """Class for duplicated papers conflicts when one of them is unclaimed"""
     pass
 
 class BrokenHepNamesRecordException(HooverException):
-    """Base class for broken HepNames records"""
+    """Base class for broken HepNames records
+
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    recid -- the recid of the record that caused the exception
+    identifier_type -- the type of the identifier that caused the exception
+    """
 
     def __init__(self, message, recid, identifier_type):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        recid -- the recid of the record that caused the exception
-        identifier -- the type of the identifier that caused the exception
-        """
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.recid = recid
         self.identifier_type = identifier_type
 
@@ -112,54 +123,62 @@ class BrokenHepNamesRecordException(HooverException):
         return md5(self.__repr__() + str(self.recid) + str(self.identifier_type)).hexdigest()
 
 class NoCanonicalNameException(HooverException):
-    """Base class for no canonical name found for a pid"""
+    """Base class for no canonical name found for a pid.
+
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    pid -- the pid of the author that lacks a canonical name
+    """
 
     def __init__(self, message, pid):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        pid -- the pid of the author that lacks a canonical name
-        """
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.pid = pid
 
     def hash(self):
         return md5(self.__repr__() + str(self.pid)).hexdigest()
 
 class ConflictingIdsOnRecordException(HooverException):
-    def __init__(self, message, pid, identifier_type, ids_list, record):
-        Exception.__init__(self, message)
+    """Exception class for when there are 2 different identifiers of the same
+    type associated with one signature inside a record.
+    
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    pid -- the pid of the author that the signature belogs to
+    identifier_type -- the type of the the identifier
+    ids_list -- an iterable holding all the values of the identifiers
+    recid -- the recid of the record that caused the exception
+    """
+    def __init__(self, message, pid, identifier_type, ids_list, recid):
+        HooverException.__init__(self, message)
         self.pid = pid
         self.identifier_type = identifier_type
         self.ids_list = ids_list
-        self.record = record
+        self.recid = recid
 
     def get_message_subject(self):
         return '[Hoover] Signature on record holds more then one identifiers of the same kind'
 
     def get_message_body(self):
         msg = ['Signature on record holds more then one identifiers of the same kind']
-        msg.append("http://inspirehep.net/record/%s" % self.record)
+        msg.append("http://inspirehep.net/record/%s" % self.recid)
         msg.append("The following ids are associated to the same name: %s" % ', '.join(self.ids_list))
         msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
-        return md5(self.__repr__() + str(self.record) + str(self.identifier_type)).hexdigest()
+        return md5(self.__repr__() + str(self.recid) + str(self.identifier_type)).hexdigest()
 
 class MultipleAuthorsWithSameIdException(HooverException):
-    """Base class for multiple authors with the same id"""
+    """Base class for multiple authors with the same id
+
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    pids -- an iterable with the pids that have the same id
+    identifier_type -- the type of the identifier that caused the exception
+    """
 
     def __init__(self, message, pids, identifier_type):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        pids -- an iterable with the pids that have the same id
-        identifier -- the type of the identifier that caused the exception
-        """
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.pids = tuple(pids)
         self.identifier_type = identifier_type
 
@@ -177,24 +196,23 @@ class MultipleAuthorsWithSameIdException(HooverException):
         return md5(self.__repr__() + str(sorted(self.pids)) + str(self.identifier_type)).hexdigest()
 
 class MultipleIdsOnSingleAuthorException(HooverException):
-    """Base class for multiple ids on a single author"""
+    """Base class for multiple ids on a single author
+
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    pid -- the pid of the author
+    ids -- an iterable with the identifiers of the author
+    identifier -- the type of the identifier that caused the exception
+    """
 
     def __init__(self, message, pid, identifier_type, ids):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        pid -- the pid of the author
-        ids -- an iterable with the identifiers of the author
-        identifier -- the type of the identifier that caused the exception
-        """
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.pid = pid
         self.ids = tuple(ids)
         self.identifier_type = identifier_type
 
     def get_message_subject(self):
-        return '[Hoover] Found profile with multipre conflicting user-verified identifiers'
+        return '[Hoover] Found profile with multiple conflicting user-verified identifiers'
 
     def get_message_body(self):
         msg = ['Found profile with multiple conflicting user-verified identifiers: ']
@@ -209,18 +227,17 @@ class MultipleIdsOnSingleAuthorException(HooverException):
         return md5(self.__repr__() + str(self.pid) + str(self.identifier_type)).hexdigest()
 
 class MultipleHepnamesRecordsWithSameIdException(HooverException):
-    """Base class for conflicting HepNames records"""
+    """Base class for conflicting HepNames records
 
+    Arguments:
+    message -- the message to be displayed when the exceptions is raised
+    recids -- an iterable with the record ids that are conflicting
+    identifier -- the type of the identifier that caused the exception
+    """
     def __init__(self, message, recids, identifier_type):
-        """Set up the exception class
-
-        arguments:
-        message -- the message to be displayed when the exceptions is raised
-        recids -- an iterable with the record ids that are conflicting
-        identifier -- the type of the identifier that caused the exception
-        """
-        Exception.__init__(self, message)
+        HooverException.__init__(self, message)
         self.recids = tuple(recids)
+        self.recid = recids[0]
         self.identifier_type = identifier_type
 
     def get_message_subject(self):
