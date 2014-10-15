@@ -36,7 +36,7 @@ def open_rt_ticket(e):
     """
     global ticket_hashes
     ticket_hash = e.hash()
-    subject = ticket_hash + ' ' + e.get_message_subject()
+    subject = e.get_message_subject() + ' ' + ticket_hash
     body = e.get_message_body()
     debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
     if bconfig.HOOVER_OPEN_RT_TICKETS:
@@ -350,7 +350,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
     1. Find out the identifiers that belong to the authors(pids) in the database
     2. Find and pull all the signatures that have the same identifier as the author to the author
     3. Connect the profile of the author with the hepnames collection entry
-    (optional). check the database to see if it is in a consistent state
+    (optional) check the database to see if it is in a consistent state
 
     Keyword arguments:
     authors -- an iterable of authors to be hoovered
@@ -388,7 +388,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
             print ticket_id
             try:
                 ticket_data = BIBCATALOG_SYSTEM.ticket_get_info(None, ticket_id)
-                ticket_hashes[ticket_data['subject'].split()[0]] = ticket_data, ticket_id, False
+                ticket_hashes[ticket_data['subject'].split()[-1]] = ticket_data, ticket_id, False
             except IndexError:
                 logger.log("Problem in subject of ticket", ticket_id)
         print ticket_hashes

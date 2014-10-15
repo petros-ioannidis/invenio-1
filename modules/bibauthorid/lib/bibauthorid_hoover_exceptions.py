@@ -12,12 +12,15 @@ class HooverException(Exception):
         self.recid = -1
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         raise NotImplementedError(self.__repr__())
 
     def get_message_subject(self):
+        """Return the subject of the message to be reported by the exception"""
         raise NotImplementedError(self.__repr__())
     
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         raise NotImplementedError(self.__repr__())
 
 class InconsistentIdentifiersException(HooverException):
@@ -37,16 +40,18 @@ class InconsistentIdentifiersException(HooverException):
         self.ids_list = ids_list
 
     def get_message_subject(self):
+        """Return the subject of the message to be reported by the exception"""
         return '[Hoover] Author found with multiple identifiers of the same kind'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ["Found multiple different %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
-        ###FIIIIIIX THIIIIIIS TUPLE to STRING
-        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid) )
+        msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid)[0] )
         msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(self.pid) + str(self.identifier_type)).hexdigest()
 
 class DuplicatePaperException(HooverException):
@@ -65,6 +70,7 @@ class DuplicatePaperException(HooverException):
         self.present_signatures = present_signatures
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(self.pid) + str(self.signature)).hexdigest()
 
 class DuplicateClaimedPaperException(DuplicatePaperException):
@@ -73,6 +79,7 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
         return '[Hoover] Wrong signature claimed to profile'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ['Found wrong signature claimed to profile ']
         try:
             cname = get_canonical_name_of_author(self.pid)[0]
@@ -114,12 +121,14 @@ class BrokenHepNamesRecordException(HooverException):
         return '[Hoover] Found a broken HepNames record'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ['Found broken hepnames record http://inspirehep.net/record/%s' % self.recid]
         msg.append('Something went wrong while trying to read the %s identifier' % self.identifier_type)
         msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(self.recid) + str(self.identifier_type)).hexdigest()
 
 class NoCanonicalNameException(HooverException):
@@ -135,6 +144,7 @@ class NoCanonicalNameException(HooverException):
         self.pid = pid
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(self.pid)).hexdigest()
 
 class ConflictingIdsOnRecordException(HooverException):
@@ -156,9 +166,11 @@ class ConflictingIdsOnRecordException(HooverException):
         self.recid = recid
 
     def get_message_subject(self):
+        """Return the subject of the message to be reported by the exception"""
         return '[Hoover] Signature on record holds more then one identifiers of the same kind'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ['Signature on record holds more then one identifiers of the same kind']
         msg.append("http://inspirehep.net/record/%s" % self.recid)
         msg.append("The following ids are associated to the same name: %s" % ', '.join(self.ids_list))
@@ -166,6 +178,7 @@ class ConflictingIdsOnRecordException(HooverException):
         return '\n'.join(msg)
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(self.recid) + str(self.identifier_type)).hexdigest()
 
 class MultipleAuthorsWithSameIdException(HooverException):
@@ -183,9 +196,11 @@ class MultipleAuthorsWithSameIdException(HooverException):
         self.identifier_type = identifier_type
 
     def get_message_subject(self):
+        """Return the subject of the message to be reported by the exception"""
         return '[Hoover] Found conflicting profile user-verified identifiers'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ['Found conflicting profiles with conflicting user-verified identifiers: ']
         msg += ['http://inspirehep.net/author/profile/%s' % r for r in self.pids]
         msg.append('Those profiles are sharing the same %s identifier!' % self.identifier_type)
@@ -193,6 +208,7 @@ class MultipleAuthorsWithSameIdException(HooverException):
         return '\n'.join(msg)
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(sorted(self.pids)) + str(self.identifier_type)).hexdigest()
 
 class MultipleIdsOnSingleAuthorException(HooverException):
@@ -212,9 +228,11 @@ class MultipleIdsOnSingleAuthorException(HooverException):
         self.identifier_type = identifier_type
 
     def get_message_subject(self):
+        """Return the subject of the message to be reported by the exception"""
         return '[Hoover] Found profile with multiple conflicting user-verified identifiers'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ['Found profile with multiple conflicting user-verified identifiers: ']
         msg += ['http://inspirehep.net/author/profile/%s' % self.pid]
         msg.append('This profile has all this %s identifiers:' % self.identifier_type)
@@ -224,6 +242,7 @@ class MultipleIdsOnSingleAuthorException(HooverException):
         return '\n'.join(msg)
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(self.pid) + str(self.identifier_type)).hexdigest()
 
 class MultipleHepnamesRecordsWithSameIdException(HooverException):
@@ -241,9 +260,11 @@ class MultipleHepnamesRecordsWithSameIdException(HooverException):
         self.identifier_type = identifier_type
 
     def get_message_subject(self):
+        """Return the subject of the message to be reported by the exception"""
         return '[Hoover] Found conflicting hepnames records'
 
     def get_message_body(self):
+        """Return the body of the message to be reported by the exception"""
         msg = ['Found conflicting hepnames records: ']
         msg += ['http://inspirehep.net/record/%s' % r for r in self.recids]
         msg.append('Those records are sharing the same %s identifier!' % self.identifier_type)
@@ -251,5 +272,6 @@ class MultipleHepnamesRecordsWithSameIdException(HooverException):
         return '\n'.join(msg)
 
     def hash(self):
+        """Return the hash of the message to be reported by the exception"""
         return md5(self.__repr__() + str(sorted(self.recids)) + str(self.identifier_type)).hexdigest()
 
