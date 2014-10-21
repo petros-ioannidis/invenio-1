@@ -12,7 +12,7 @@ from invenio.bibtask import setup_loggers
 from invenio.bibtask import task_set_task_param
 from invenio.bibtask import task_low_level_submission
 
-from invenio.bibupload_regression_tests import wipe_out_record_from_all_tables, force_webcoll
+from invenio.bibupload_regression_tests import wipe_out_record_from_all_tables#, force_webcoll
 from invenio.dbquery import run_sql
 
 import invenio.bibauthorid_rabbit

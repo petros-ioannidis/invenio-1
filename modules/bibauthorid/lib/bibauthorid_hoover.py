@@ -27,7 +27,7 @@ try:
 except ImportError:
     from invenio.bibauthorid_general_utils import defaultdict
 
-def open_rt_ticket(e):
+def open_rt_ticket(e, debug_log=False):
     """Take an exception e and, if allowed by the configuration, 
     open a ticket for that exception.
 
@@ -38,7 +38,10 @@ def open_rt_ticket(e):
     ticket_hash = e.hash()
     subject = e.get_message_subject() + ' ' + ticket_hash
     body = e.get_message_body()
-    debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
+    if debug_log:
+        debug = e.__repr__() + '\n' + '\n'.join([ str(key) + " " + str(value)  for key, value in vars(e).iteritems() ])
+    else:
+        debug = ''
     if bconfig.HOOVER_OPEN_RT_TICKETS:
         queue = 'Test'
         if ticket_hash not in ticket_hashes.iterkeys():
@@ -155,7 +158,7 @@ def get_inspireID_from_hepnames(pid):
 
 class HepnamesConnector(object):
     """A class to handle the connections that are to be performed.
-    This is needed to avoid the creation of too many bibupload tasks
+    This is needed to avoid the creation of too many bibupload tasks.
 
     Arguments:
     produce_connection_entry -- the function that returns the correspondance
@@ -175,13 +178,22 @@ class HepnamesConnector(object):
             setattr(self, 'execute_connection', _null_func)
 
     def add_connection(self, pid, inspireID):
-        tmp = connect_hepnames_to_inspireID(pid, inspireID)
-        if tmp:
-            self.cname_dict.update(tmp)
-        if len(self.cname_dict.keys()) >= self.packet_size:
-            self.execute_connection()
+        """add connection to the connector indicating that there should be a 
+        connection created between the pid an the HepNames record with the
+        inspireID"""
+        coll_id = get_inspireID_from_hepnames(pid)
+        if not coll_id or coll_id != inspireID:
+            tmp = connect_hepnames_to_inspireID(pid, inspireID)
+            if tmp:
+                self.cname_dict.update(tmp)
+            if len(self.cname_dict.keys()) >= self.packet_size:
+                self.execute_connection()
 
     def execute_connection(self):
+        """Execute the connection between the canonical name and the hepnames 
+        record. In case the dry_hepnames_run option is true this functions is
+        substituted with the _null_func(), a function that has no effect.
+        """
         add_cname_to_hepname_record(self.cname_dict)
         self.cname_dict.clear()
 
@@ -195,7 +207,6 @@ def connect_hepnames_to_inspireID(pid, inspireID):
     author_canonical_name = get_canonical_name_of_author(pid)
 
     if not author_canonical_name:
-        #TODO: signal that something is wrong instead of just ignoring. Ignoring is safe for the moment.
         return None
 
     recid = perform_request_search(p="035:" + inspireID, cc="HepNames")
@@ -292,7 +303,7 @@ def get_inspireID_from_claimed_papers(pid, intersection_set=None):
         inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
             if len(inspireID) > 1:
-                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids found', pid, 'INSPIREID', inspireID, sig[2]))
+                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids found', pid, 'INSPIREID', inspireID, sig))
                 return None
 
             inspireID_list.append(inspireID[0])
@@ -328,7 +339,7 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
         inspireID = get_inspire_id_of_signature(sig)
         if inspireID:
             if len(inspireID) > 1:
-                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids found', pid, 'INSPIREID', inspireID, sig[2]))
+                open_rt_ticket(ConflictingIdsOnRecordException('Conflicting ids found', pid, 'INSPIREID', inspireID, sig))
                 return None
 
             inspireID_list.append(inspireID[0])
@@ -343,7 +354,6 @@ def get_inspireID_from_unclaimed_papers(pid, intersection_set=None):
 
 ticket_hashes = dict()
 
-#put packet_size inside the daemon
 @timed
 def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=1000, dry_hepnames_run=False, statistics=False):
     """The actions that hoover performs are the following:
@@ -354,14 +364,13 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
 
     Keyword arguments:
     authors -- an iterable of authors to be hoovered
-    check_db_consistency -- perform checks for the consistency of th database
+    check_db_consistency -- perform checks for the consistency of the database
     dry_run -- do not alter the database tables
     packet_size -- squeeze together the marcxml. This there are fewer bibupload 
                    processes for the bibsched to run.
     dry_hepnames_run -- do not alter the hepnames collection
     statistics -- report statistics for the algorithm (to be done)
     """
-    
     logger.log("Packet size %d" % packet_size)
     logger.log("Initializing hoover")
     logger.log("Selecting records with identifiers...")
@@ -468,7 +477,7 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
             except MultipleIdsOnSingleAuthorException as e:
                 open_rt_ticket(e)
             except BrokenHepNamesRecordException as e:
-                open_rt_ticket(e)
+                continue
             except InconsistentIdentifiersException as e:
                 open_rt_ticket(e)
             except MultipleHepnamesRecordsWithSameIdException as e:
@@ -546,7 +555,6 @@ def hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=
                 # open_rt_ticket(e)
                 continue
             except BrokenHepNamesRecordException as e:
-                open_rt_ticket(e)
                 continue
             except MultipleHepnamesRecordsWithSameIdException as e:
                 open_rt_ticket(e)

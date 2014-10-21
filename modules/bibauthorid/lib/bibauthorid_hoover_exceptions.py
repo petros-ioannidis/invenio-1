@@ -41,13 +41,13 @@ class InconsistentIdentifiersException(HooverException):
 
     def get_message_subject(self):
         """Return the subject of the message to be reported by the exception"""
-        return '[Hoover] Author found with multiple identifiers of the same kind'
+        return '[Hoover] Author found with multiple derived identifiers of the same kind'
 
     def get_message_body(self):
         """Return the body of the message to be reported by the exception"""
         msg = ["Found multiple different %s identifiers (%s) on profile: " % (self.identifier_type, ','.join(self.ids_list))]
         msg.append("http://inspirehep.net/author/profile/%s" % get_canonical_name_of_author(self.pid)[0] )
-        msg.append(self.message)
+        #msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
@@ -87,7 +87,6 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
             cname = self.pid
 
         msg.append("http://inspirehep.net/author/profile/%s" % cname)
-        #TODO: add to exception information about which ID is requiring the move
         sig_name = get_name_by_bibref(self.signature[0:2])
         p_sigs = [(x,get_name_by_bibref(x[0:2])) for x in self.present_signatures]
 
@@ -95,7 +94,8 @@ class DuplicateClaimedPaperException(DuplicatePaperException):
 
         msg.append("want to move %s (%s on record %s) to this profile but [%s] are already present and claimed" %
                     (self.signature, sig_name, self.signature[2], p_sig_strings))
-        msg.append(self.message)
+        msg.append("http://inspirehep.net/record/%s" % self.signature[2])
+        #msg.append(self.message)
         return '\n'.join(msg)
 
 #This class does not have any usage yet
@@ -124,7 +124,7 @@ class BrokenHepNamesRecordException(HooverException):
         """Return the body of the message to be reported by the exception"""
         msg = ['Found broken hepnames record http://inspirehep.net/record/%s' % self.recid]
         msg.append('Something went wrong while trying to read the %s identifier' % self.identifier_type)
-        msg.append(self.message)
+        #msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
@@ -158,12 +158,12 @@ class ConflictingIdsOnRecordException(HooverException):
     ids_list -- an iterable holding all the values of the identifiers
     recid -- the recid of the record that caused the exception
     """
-    def __init__(self, message, pid, identifier_type, ids_list, recid):
+    def __init__(self, message, pid, identifier_type, ids_list, signature):
         HooverException.__init__(self, message)
         self.pid = pid
         self.identifier_type = identifier_type
         self.ids_list = ids_list
-        self.recid = recid
+        self.signature = signature
 
     def get_message_subject(self):
         """Return the subject of the message to be reported by the exception"""
@@ -171,15 +171,22 @@ class ConflictingIdsOnRecordException(HooverException):
 
     def get_message_body(self):
         """Return the body of the message to be reported by the exception"""
-        msg = ['Signature on record holds more then one identifiers of the same kind']
-        msg.append("http://inspirehep.net/record/%s" % self.recid)
-        msg.append("The following ids are associated to the same name: %s" % ', '.join(self.ids_list))
-        msg.append(self.message)
+        #msg = ['Signature on record holds more then one identifiers of the same kind']
+        try:
+            cname = get_canonical_name_of_author(self.pid)[0]
+        except IndexError:
+            cname = self.pid
+
+        msg = ["Profile: http://inspirehep.net/author/profile/%s" % cname]
+        msg.append("Record: http://inspirehep.net/record/%s" % self.signature[2])
+        msg.append("Signature: %s" % str(self.signature))
+        msg.append("The following identifiers are associated with the signature: %s" % ', '.join(self.ids_list))
+        #msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
         """Return the hash of the message to be reported by the exception"""
-        return md5(self.__repr__() + str(self.recid) + str(self.identifier_type)).hexdigest()
+        return md5(self.__repr__() + str(self.signature[2]) + str(self.identifier_type)).hexdigest()
 
 class MultipleAuthorsWithSameIdException(HooverException):
     """Base class for multiple authors with the same id
@@ -204,7 +211,7 @@ class MultipleAuthorsWithSameIdException(HooverException):
         msg = ['Found conflicting profiles with conflicting user-verified identifiers: ']
         msg += ['http://inspirehep.net/author/profile/%s' % r for r in self.pids]
         msg.append('Those profiles are sharing the same %s identifier!' % self.identifier_type)
-        msg.append(self.message)
+        #msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
@@ -229,16 +236,16 @@ class MultipleIdsOnSingleAuthorException(HooverException):
 
     def get_message_subject(self):
         """Return the subject of the message to be reported by the exception"""
-        return '[Hoover] Found profile with multiple conflicting user-verified identifiers'
+        return '[Hoover] Profile with multiple user-verified identifiers of the same kind'
 
     def get_message_body(self):
         """Return the body of the message to be reported by the exception"""
-        msg = ['Found profile with multiple conflicting user-verified identifiers: ']
-        msg += ['http://inspirehep.net/author/profile/%s' % self.pid]
+        #msg = ['Found profile with multiple conflicting user-verified identifiers: ']
+        msg = ['Profile: http://inspirehep.net/author/profile/%s' % self.pid]
         msg.append('This profile has all this %s identifiers:' % self.identifier_type)
         msg.append(', '.join(str(x) for x in self.ids))
         msg.append('Each profile should have only one identifier of each kind.')
-        msg.append(self.message)
+        #msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):
@@ -268,7 +275,7 @@ class MultipleHepnamesRecordsWithSameIdException(HooverException):
         msg = ['Found conflicting hepnames records: ']
         msg += ['http://inspirehep.net/record/%s' % r for r in self.recids]
         msg.append('Those records are sharing the same %s identifier!' % self.identifier_type)
-        msg.append(self.message)
+        #msg.append(self.message)
         return '\n'.join(msg)
 
     def hash(self):

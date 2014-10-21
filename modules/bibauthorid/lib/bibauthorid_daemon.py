@@ -103,9 +103,14 @@ Examples:
     There are no options for the merger.
 
     Options for force identifier consistency
-        --check-only
-        --dry-run
+        --check-db                Perform a thorough check on the database to discover any possible inconsistencies.
 
+        --dry-run                 Do not perform any changes in the database.
+
+        --packet-size (optional)  The number of marcxml changes that a bibupload task created by the algorithm will contain.
+                                  By default this is set to 1000 marcxml updates per bibupload task.
+
+        --dry-hepnames-run        Do perform changes in the database but do not alter the HepNames collection in any way.
 """,
                       version="Invenio Bibauthorid v%s" % bconfig.VERSION,
                       specific_params=("i:",
@@ -121,9 +126,10 @@ Examples:
                                        "st",
                                        "single-threaded",
                                        "force-identifier-consistency",
-                                       "consistency-check",
+                                       "check-db",
                                        "dry-run",
-                                       "query-file-size="
+                                       "packet-size="
+                                       "dry-hepnames-run",
                                        ]),
                       task_submit_elaborate_specific_parameter_fnc=_task_submit_elaborate_specific_parameter,
                       task_submit_check_options_fnc=_task_submit_check_options,
@@ -164,15 +170,15 @@ def _task_submit_elaborate_specific_parameter(key, value, opts, args):
         bibtask.task_set_option("single-threaded", True)
     elif key in ("--force-identifier-consistency",):
         bibtask.task_set_option("force-identifier-consistency", True)
-    elif key in ("--check-only",):
-        bibtask.task_set_option("check-only", True)
+    elif key in ("--check-db",):
+        bibtask.task_set_option("check-db", True)
     elif key in ("--dry-run",):
         bibtask.task_set_option("dry-run", True)
-    elif key in ("--query-file-size"):
+    elif key in ("--packet-size"):
         if value.count("="):
             value = value[1:]
         value = int(value)
-        bibtask.task_set_option("query-file-size", value)
+        bibtask.task_set_option("packet-size", value)
     else:
         return False
 
@@ -214,14 +220,15 @@ def _task_run_core():
             bibtask.task_update_progress('Full disambiguation finished!')
 
     if bibtask.task_get_option("force-identifier-consistency"):
-        check_only = bibtask.task_get_option("check-only")
-        dry_run_b = bibtask.task_get_option("dry_run")
-        query_file_size = bibtask.task_get_option("query-file-size")
+        check_db = bibtask.task_get_option("check-db")
+        dry_run_b = bibtask.task_get_option("dry-run")
+        query_file_size = bibtask.task_get_option("packet-size")
+        dry_hepnames = bibtask.task_get_option("dry-hepnames-run")
         bibtask.task_update_progress('Initializing hoover')
         if query_file_size:
-            run_hoover(check_db_consistency=check_only, dry_run=dry_run_b, packet_size=query_file_size)
+            run_hoover(check_db_consistency=check_db, dry_run=dry_run_b, packet_size=query_file_size, dry_hepnames_run=dry_hepnames)
         else:
-            run_hoover(check_db_consistency=check_only, dry_run=dry_run_b)
+            run_hoover(check_db_consistency=check_db, dry_run=dry_run_b, dry_hepnames_run=dry_hepnames)
         bibtask.task_update_progress('Terminating hoover')
 
     if bibtask.task_get_option("merge"):
@@ -273,7 +280,7 @@ def _task_submit_check_options():
     all_records = bibtask.task_get_option("all_records")
     from_scratch = bibtask.task_get_option("from_scratch")
 
-    check_only = bibtask.task_get_option("check-only")
+    check_db = bibtask.task_get_option("check-db")
     dry_run_b = bibtask.task_get_option("dry_run")
 
     commands = (bool(update_personid) + bool(disambiguate) +
@@ -396,9 +403,9 @@ def run_rabbit(paperslist, all_records=False):
             'bibauthorid_daemon, personid_fast_assign_papers on ' + str(paperslist),
             partial=True)
 
-def run_hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=1000):
+def run_hoover(authors=None, check_db_consistency=False, dry_run=False, packet_size=1000, dry_hepnames_run=False):
     from invenio.bibauthorid_hoover import hoover
-    hoover(authors, check_db_consistency, dry_run, packet_size=packet_size)
+    hoover(authors, check_db_consistency, dry_run, packet_size, dry_hepnames_run)
 
 def run_tortoise(from_scratch, last_names_thresholds=None,
                  single_threaded=False):
