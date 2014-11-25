@@ -45,6 +45,11 @@ from invenio.jsonutils import json
 from datetime import datetime
 import time
 from invenio import bibrecord
+from invenio.search_engine import perform_request_search
+from invenio.shellutils import retry_mkstemp
+import os 
+import datetime
+from invenio.bibrecord import record_xml_output, record_add_field
 
 #raise Exception(str(dir(sys.modules['invenio'])))
 import invenio.webpage as webpage
@@ -2033,8 +2038,49 @@ def create_hepdata_ticket(recid, msg, queue="Data_Exceptions"):
     ticket = BibCatalogTicket(subject=subject,
                               body=body,
                               queue=queue,
-                              recid=recid)
+                             recid=recid)
     ticket.submit()
+
+def connect_hepnames_with_hepdata(recids=None):
+    """Append the 770 subfield with the HepData records id to the HEP record.
+    By doing this we connect the record with its HepData records.
+
+    Arguments:
+    recids -- the iteratable with the ids of the records we want to process.
+    """
+
+
+    print 'Initiate metadata fixes'
+    if not recids:
+        print 'Searching for possible records'
+        recids = perform_request_search(p='', cc='HEP', rg=0)
+
+    tmp_file_fd, tmp_file_name = retry_mkstemp(suffix='.xml', prefix="hepdataupload-%s" % datetime.datetime.now().isoformat())
+    tmp_file = os.fdopen(tmp_file_fd, "w")
+    
+    print 'Processing records'
+    _current_num = 0
+    total = len(recids)
+    last_percentage = 0
+    print 'Number of records to process %d' % total
+    for recid in recids:
+        _current_num += 1
+        percentage = float(_current_num)/total
+        if percentage > last_percentage + 1:
+            last_percentage = percentage
+            print str(percentage),'%'
+        rec = {}
+        record_add_field(rec, '001', controlfield_value=str(recid))
+        hepdata_records = get_attached_hepdata_dataset_ids(recid)
+        for hepdata_recid in hepdata_records:
+            record_add_field(rec, tag='770', subfields=[('w', str(hepdata_recid))])
+        tmp_file.write(record_xml_output(rec))
+    tmp_file.close()
+    print 'Done processing records'
+    task_low_level_submission('bibupload', '', '-a', tmp_file_name, '-P5', '-N', 'hepdatautils')
+
+
+
 
 if __name__ == "__main__":
     # JUST DEBUG DO NOT USE ATM
