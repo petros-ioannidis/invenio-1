@@ -49,6 +49,7 @@ from invenio.search_engine import perform_request_search
 from invenio.shellutils import retry_mkstemp
 import os 
 import datetime
+from time import time
 from invenio.bibrecord import record_xml_output, record_add_field
 
 #raise Exception(str(dir(sys.modules['invenio'])))
@@ -2041,6 +2042,24 @@ def create_hepdata_ticket(recid, msg, queue="Data_Exceptions"):
                              recid=recid)
     ticket.submit()
 
+
+def get_hep_recids_with_hepdata_entries():
+    hepdata_recids=perform_request_search(p='', cc='Data', rg=0)
+    hep_recids = set()
+
+    for recid in hepdata_recids:
+        try:
+            data = get_hepdata_by_recid_raw(recid)[0]['786'][0][0]
+        except (TypeError, IndexError, KeyError) as e:
+            print e
+            print recid
+            continue
+        for field in data:
+            if field[0] == 'w':
+                hep_recids.add(int(field[1]))
+    return hep_recids
+
+
 def connect_hepnames_with_hepdata(recids=None):
     """Append the 770 subfield with the HepData records id to the HEP record.
     By doing this we connect the record with its HepData records.
@@ -2065,21 +2084,20 @@ def connect_hepnames_with_hepdata(recids=None):
     print 'Number of records to process %d' % total
     for recid in recids:
         _current_num += 1
-        percentage = float(_current_num)/total
+        percentage = 100*float(_current_num)/total
         if percentage > last_percentage + 1:
             last_percentage = percentage
             print str(percentage),'%'
-        rec = {}
-        record_add_field(rec, '001', controlfield_value=str(recid))
         hepdata_records = get_attached_hepdata_dataset_ids(recid)
-        for hepdata_recid in hepdata_records:
-            record_add_field(rec, tag='770', subfields=[('w', str(hepdata_recid))])
-        tmp_file.write(record_xml_output(rec))
+        if hepdata_records:
+            rec = {}
+            record_add_field(rec, '001', controlfield_value=str(recid))
+            for hepdata_recid in hepdata_records:
+                record_add_field(rec, tag='770', subfields=[('w', str(hepdata_recid))])
+            tmp_file.write(record_xml_output(rec))
     tmp_file.close()
     print 'Done processing records'
     task_low_level_submission('bibupload', '', '-a', tmp_file_name, '-P5', '-N', 'hepdatautils')
-
-
 
 
 if __name__ == "__main__":
